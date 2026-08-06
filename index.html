@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>나만의 여행 계획 (Merged Planner)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        .sortable-ghost { opacity: 0.4; background-color: #eff6ff; }
+        .place-item { z-index: 10; position: relative; transition: all 0.2s ease; }
+        .cat-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .modal-overlay { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); }
+        .day-chip { transition: all 0.15s ease; }
+        .day-chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    </style>
+</head>
+<!-- 모바일: 세로(컬럼) 역순 배치, PC(md): 가로 배치 -->
+<body class="flex flex-col-reverse md:flex-row h-screen bg-gray-100 font-sans text-gray-800 overflow-hidden">
+
+    <div id="modalRoot" class="hidden fixed inset-0 z-[1000] modal-overlay flex items-center justify-center p-4"></div>
+
+    <!-- 모바일: 높이 60%, 너비 100% / PC: 높이 100%, 너비 450px -->
+    <aside class="w-full h-[60%] md:h-full md:w-[450px] bg-white shadow-2xl flex flex-col z-10 flex-shrink-0">
+        <!-- 헤더 -->
+        <div class="p-3 md:p-5 bg-blue-600 text-white">
+            <div class="flex justify-between items-center mb-2 md:mb-3">
+                <h1 class="text-lg md:text-xl font-bold flex items-center gap-2">✈️ 여행 플래너</h1>
+                <button onclick="createNewTrip()" class="text-xs bg-white text-blue-600 px-2 py-1 rounded shadow hover:bg-blue-50 font-bold">+ 새 여행</button>
+            </div>
+            <div class="flex gap-2 mb-2 md:mb-3">
+                <select id="tripSelect" onchange="changeTrip()" class="flex-1 text-sm bg-blue-700 border-none text-white rounded p-1.5 md:p-2 outline-none cursor-pointer"></select>
+                <button onclick="deleteCurrentTrip()" class="bg-blue-800 p-1.5 md:p-2 rounded hover:bg-red-500 transition">🗑️</button>
+            </div>
+            <button onclick="openShareModal()" class="w-full text-xs font-medium bg-blue-800 text-blue-100 py-1.5 md:py-2 rounded hover:bg-blue-900 transition flex justify-center items-center">
+                📤 내보내기 / 📥 가져오기
+            </button>
+        </div>
+
+        <!-- 3단 탭 -->
+        <div class="flex border-b text-center text-xs md:text-sm font-bold bg-gray-50">
+            <button id="tabItineraryBtn" onclick="switchTab('itinerary')" class="flex-1 py-2 md:py-3 border-b-2 border-blue-600 text-blue-600">🗺️ 일정</button>
+            <button id="tabReservationBtn" onclick="switchTab('reservation')" class="flex-1 py-2 md:py-3 text-gray-400 hover:text-gray-600 border-b-2 border-transparent">🏨 예약/바우처</button>
+            <button id="tabChecklistBtn" onclick="switchTab('checklist')" class="flex-1 py-2 md:py-3 text-gray-400 hover:text-gray-600 border-b-2 border-transparent">✅ 준비물</button>
+        </div>
+
+        <!-- [1] 여행 일정 탭 -->
+        <div id="itineraryTab" class="flex-1 flex flex-col overflow-hidden">
+            <div class="p-3 md:p-4 border-b bg-white">
+                <div class="flex gap-2 relative">
+                    <input type="text" id="searchInput" placeholder="장소 검색 (예: 갈라타 탑)" class="flex-1 px-3 py-1.5 md:py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="if(event.key === 'Enter') searchPlace()">
+                    <button onclick="searchPlace()" class="px-3 md:px-4 py-1.5 md:py-2 bg-gray-800 text-white rounded text-sm hover:bg-gray-700 transition">검색</button>
+                    <div id="searchResults" class="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white rounded border border-gray-200 shadow-xl hidden z-50"></div>
+                </div>
+            </div>
+            
+            <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b bg-gray-50 flex items-center justify-between">
+                <div id="dayChipsContainer" class="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide"></div>
+                <button onclick="addDay()" class="ml-2 text-xs font-bold text-blue-600 whitespace-nowrap">+ 일자 추가</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-gray-100" id="currentDayContainer">
+                <div id="dayList" class="flex flex-col gap-2 min-h-[50px]"></div>
+            </div>
+        </div>
+
+        <!-- [2] 예약/바우처 탭 -->
+        <div id="reservationTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-gray-50 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-gray-700 text-base md:text-lg">📝 예약 및 바우처</h2>
+                <button onclick="openResModal()" class="text-xs bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded hover:bg-blue-200">+ 예약 추가</button>
+            </div>
+            <div id="reservationList" class="space-y-3"></div>
+        </div>
+
+        <!-- [3] 준비물 탭 -->
+        <div id="checklistTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-gray-50 hidden">
+            <h2 class="font-bold text-gray-700 mb-4 text-base md:text-lg">✅ 준비물 챙기기</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="checklistInput" placeholder="예: 여권, 돼지코" class="flex-1 px-3 py-1.5 md:py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="if(event.key === 'Enter') addChecklistItem()">
+                <button onclick="addChecklistItem()" class="px-4 py-1.5 md:py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition">추가</button>
+            </div>
+            <div id="checklistContainer" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"></div>
+        </div>
+    </aside>
+
+    <!-- 모바일: 높이 40%, 너비 100% / PC: 남은 영역 모두 차지 -->
+    <main class="w-full h-[40%] md:h-full md:flex-1 relative z-0">
+        <!-- 지도 클릭 모드 토글 버튼 -->
+        <div class="absolute top-2 left-2 md:top-4 md:left-4 z-[400] flex flex-col gap-2">
+            <button id="mapModeBtn" onclick="toggleMapMode()" class="bg-white shadow-md rounded-lg px-2 py-1 md:px-3 md:py-2 text-[11px] md:text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 transition">
+                📍 <span>지도 클릭으로 장소 추가 (OFF)</span>
+            </button>
+        </div>
+
+        <div id="map" class="w-full h-full relative z-0"></div>
+
+        <!-- 배율 초기화(전체 경로 보기) 버튼 -->
+        <div class="absolute top-[45px] right-[10px] md:top-[80px] md:right-[10px] z-[400]">
+            <button onclick="resetMapView()" class="bg-white w-[30px] h-[30px] md:w-[34px] md:h-[34px] rounded-[4px] shadow-[0_1px_5px_rgba(0,0,0,0.65)] flex items-center justify-center hover:bg-gray-50 text-sm md:text-base border-b border-gray-300" title="전체 경로 보기">
+                🗺️
+            </button>
+        </div>
+
+        <!-- 내 위치 확인 버튼 -->
+        <button onclick="findMyLocation()" class="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[400] bg-white w-10 h-10 md:w-12 md:h-12 rounded-full shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-xl md:text-2xl transition transform hover:scale-105" title="내 위치 찾기">🎯</button>
+    </main>
+
+    <script>
+        // 기존 JavaScript 로직 유지
+        const dayColors = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0891b2', '#be123c'];
+
+        const transportMeta = {
+            'car': { label: '🚗 차량', profile: 'driving', speed: 65 },
+            'walk': { label: '🚶 도보', profile: 'foot', speed: 4 },
+            'transit': { label: '🚌 대중교통', profile: null, speed: 30 },
+            'flight': { label: '✈️ 항공', profile: null, speed: 800 }
+        };
+
+        const categories = {
+            'sightseeing': { label: '📸 명소', color: 'bg-blue-100 text-blue-700' },
+            'food': { label: '🍽️ 식당', color: 'bg-orange-100 text-orange-700' },
+            'hotel': { label: '🛏️ 숙소', color: 'bg-purple-100 text-purple-700' },
+            'transport': { label: '🚌 교통', color: 'bg-green-100 text-green-700' },
+            'custom': { label: '📌 기타', color: 'bg-gray-200 text-gray-700' }
+        };
+
+        const defaultSampleData = {
+            currentTripId: 1, currentDayIndex: 0,
+            trips: [
+                {
+                    id: 1, title: '🇹🇷 한국-터키 4박 5일 여행', 
+                    days: [
+                        [
+                            { id: 101, name: '인천국제공항 (ICN)', lat: 37.4602, lng: 126.4407, category: 'transport', customLabel: '', transport: 'car', visited: true, currency: 'KRW' },
+                            { id: 102, name: '이스탄불 공항 (IST)', lat: 41.2753, lng: 28.7289, category: 'transport', customLabel: '', transport: 'flight', visited: false, currency: 'KRW' },
+                            { id: 103, name: '콘래드 이스탄불 보스포루스', lat: 41.0487, lng: 29.0063, category: 'hotel', customLabel: '', transport: 'car', visited: false, currency: 'KRW' }
+                        ],
+                        [
+                            { id: 201, name: '콘래드 이스탄불 보스포루스', lat: 41.0487, lng: 29.0063, category: 'hotel', customLabel: '', transport: 'walk', visited: false, currency: 'KRW' },
+                            { id: 202, name: '아야 소피아 (Ayasofya)', lat: 41.0085, lng: 28.9802, category: 'sightseeing', customLabel: '', transport: 'walk', visited: false, currency: 'KRW' },
+                            { id: 203, name: '블루 모스크', lat: 41.0054, lng: 28.9768, category: 'sightseeing', customLabel: '', transport: 'walk', visited: false, currency: 'KRW' },
+                            { id: 204, name: '그랜드 바자르', lat: 41.0108, lng: 28.9680, category: 'custom', customLabel: '쇼핑', transport: 'walk', visited: false, currency: 'KRW' },
+                            { id: 205, name: '누스렛 스테이크하우스', lat: 41.0135, lng: 28.9840, category: 'food', customLabel: '', transport: 'walk', visited: false, currency: 'KRW' }
+                        ]
+                    ], 
+                    reservations: [], 
+                    checklists: []
+                }
+            ]
+        };
+
+        let appData = JSON.parse(localStorage.getItem('travelAppMergedFinal')) || defaultSampleData;
+        const map = L.map('map', { zoomControl: false }).setView([37.5665, 126.9780], 3);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        let mapLayers = [];
+        let sortableInstance = null;
+        let latestRenderId = 0;
+        let mapClickMode = false;
+
+        // 창 크기 변경 시 지도 리렌더링 (모바일 화면 전환 대비)
+        window.addEventListener('resize', () => {
+            if (map) map.invalidateSize();
+        });
+
+        function saveData() { localStorage.setItem('travelAppMergedFinal', JSON.stringify(appData)); }
+        function getCurrentTrip() { return appData.trips.find(t => t.id === appData.currentTripId) || appData.trips[0]; }
+        
+        function switchTab(tabName) {
+            ['itinerary', 'reservation', 'checklist'].forEach(tab => {
+                const isMatch = tab === tabName;
+                document.getElementById(`${tab}Tab`).classList.toggle('hidden', !isMatch);
+                document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}Btn`).className = 
+                    isMatch ? "flex-1 py-2 md:py-3 border-b-2 border-blue-600 text-blue-600" : "flex-1 py-2 md:py-3 text-gray-400 hover:text-gray-600 border-b-2 border-transparent";
+            });
+        }
+
+        function openModal(html) {
+            const root = document.getElementById('modalRoot');
+            root.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-[90%] md:w-full max-w-md max-h-[90vh] overflow-y-auto">${html}</div>`;
+            root.classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('modalRoot').classList.add('hidden'); }
+
+        function openShareModal() {
+            const trip = getCurrentTrip();
+            openModal(`
+                <div class="p-6 space-y-4">
+                    <h2 class="font-bold text-gray-800 text-lg">내보내기 / 가져오기</h2>
+                    <div class="space-y-2">
+                        <button onclick="exportData(true)" class="w-full bg-blue-600 text-white py-2 rounded font-bold">📤 현재 여행만 내보내기</button>
+                        <button onclick="exportData(false)" class="w-full bg-gray-200 text-gray-800 py-2 rounded font-bold">📦 전체 백업 내보내기</button>
+                    </div>
+                    <div class="border-t pt-4">
+                        <label class="text-sm font-bold text-gray-600 block mb-2">가져오기 (.json)</label>
+                        <input type="file" accept=".json" onchange="importData(event)" class="w-full text-xs">
+                    </div>
+                    <button onclick="closeModal()" class="w-full py-2 border border-gray-300 rounded text-sm mt-2">닫기</button>
+                </div>
+            `);
+        }
+
+        function exportData(currentOnly) {
+            let exportObj = currentOnly ? { __type: 'single', trip: getCurrentTrip() } : { __type: 'full', trips: appData.trips };
+            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `여행데이터.json`; a.click();
+        }
+
+        function importData(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = JSON.parse(evt.target.result);
+                    if (data.__type === 'single') {
+                        data.trip.id = Date.now();
+                        appData.trips.push(data.trip); appData.currentTripId = data.trip.id;
+                    } else if (data.__type === 'full') {
+                        appData.trips = data.trips; appData.currentTripId = appData.trips[0].id;
+                    }
+                    saveData(); renderUI(false); closeModal(); alert("성공적으로 불러왔습니다!");
+                } catch(err) { alert("파일 형식이 올바르지 않습니다."); }
+            };
+            reader.readAsText(file);
+        }
+
+        function changeTrip() { appData.currentTripId = parseInt(document.getElementById('tripSelect').value); appData.currentDayIndex = 0; saveData(); renderUI(false); }
+        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; saveData(); renderUI(false); } }
+        function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; saveData(); renderUI(false); } }
+        
+        function addDay() { getCurrentTrip().days.push([]); appData.currentDayIndex = getCurrentTrip().days.length - 1; saveData(); renderUI(true); }
+        function selectDay(idx) { appData.currentDayIndex = idx; saveData(); renderUI(false); }
+        
+        function getPlaceAndDay(placeId) {
+            const trip = getCurrentTrip();
+            for (let d = 0; d < trip.days.length; d++) {
+                const p = trip.days[d].find(x => x.id === placeId);
+                if (p) return { p, dayIndex: d };
+            }
+            return { p: null, dayIndex: -1 };
+        }
+
+        function deletePlace(placeId) {
+            const trip = getCurrentTrip();
+            trip.days = trip.days.map(day => day.filter(p => p.id !== placeId));
+            saveData(); renderUI(true);
+        }
+
+        function updatePlaceField(placeId, field, value) {
+            const { p } = getPlaceAndDay(placeId);
+            if(p) { 
+                p[field] = value; 
+                saveData(); 
+                if(['category','transport','linkedResId', 'customLabel', 'currency'].includes(field)) renderUI(true); 
+            }
+        }
+
+        function toggleVisited(placeId) {
+            const { p } = getPlaceAndDay(placeId);
+            if(p) { p.visited = !p.visited; saveData(); renderUI(true); }
+        }
+
+        async function searchPlace() {
+            const query = document.getElementById('searchInput').value.trim();
+            if(!query) return;
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+            const data = await res.json();
+            const resDiv = document.getElementById('searchResults'); resDiv.innerHTML = ''; resDiv.classList.remove('hidden');
+            data.forEach(item => {
+                const div = document.createElement('div'); div.className = "p-3 border-b hover:bg-blue-50 cursor-pointer text-sm font-bold";
+                div.innerText = item.display_name.split(',')[0];
+                div.onclick = () => {
+                    let targetDayIdx = appData.currentDayIndex === 'all' ? 0 : appData.currentDayIndex;
+                    getCurrentTrip().days[targetDayIdx].push({ id: Date.now(), name: item.display_name.split(',')[0], lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
+                    saveData(); renderUI(true); resDiv.classList.add('hidden'); 
+                    map.setView([item.lat, item.lon], 15, { animate: true, duration: 0.4 });
+                };
+                resDiv.appendChild(div);
+            });
+        }
+
+        function findMyLocation() {
+            if (navigator.geolocation) {
+                const btn = document.querySelector('button[title="내 위치 찾기"]');
+                btn.innerHTML = '⏳';
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => { 
+                        map.setView([pos.coords.latitude, pos.coords.longitude], 15, { animate: true, duration: 0.4 }); 
+                        btn.innerHTML = '🎯'; 
+                    },
+                    (err) => { alert("위치 접근을 허용해주세요."); btn.innerHTML = '🎯'; }
+                );
+            } else { alert("지원하지 않는 브라우저입니다."); }
+        }
+
+        function toggleMapMode() {
+            mapClickMode = !mapClickMode;
+            const btn = document.getElementById('mapModeBtn');
+            const span = btn.querySelector('span');
+            if (mapClickMode) {
+                btn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+                span.textContent = '지도 클릭으로 장소 추가 (ON)';
+            } else {
+                btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+                span.textContent = '지도 클릭으로 장소 추가 (OFF)';
+            }
+        }
+
+        map.on('click', (e) => {
+            if (!mapClickMode) return;
+            const placeName = prompt("이 장소의 이름을 입력하세요:", "새로운 장소");
+            if (placeName) {
+                let targetDayIdx = appData.currentDayIndex === 'all' ? 0 : appData.currentDayIndex;
+                getCurrentTrip().days[targetDayIdx].push({ 
+                    id: Date.now(), name: placeName, lat: e.latlng.lat, lng: e.latlng.lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' 
+                });
+                saveData(); renderUI(true);
+            }
+        });
+
+        function formatDurationKorean(totalMinutes) {
+            if (totalMinutes <= 0) return '[0분]';
+            const days = Math.floor(totalMinutes / (24 * 60));
+            const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+            const minutes = totalMinutes % 60;
+            
+            let result = [];
+            if (days > 0) result.push(`${days}일`);
+            if (hours > 0) result.push(`${hours}시간`);
+            if (minutes > 0) result.push(`${minutes}분`);
+            return `[${result.join(' ')}]`;
+        }
+
+        function resetMapView() {
+            const trip = getCurrentTrip();
+            let allLatLngs = [];
+            trip.days.forEach(day => day.forEach(p => allLatLngs.push([p.lat, p.lng])));
+            if (allLatLngs.length > 1) {
+                map.fitBounds(L.polyline(allLatLngs).getBounds(), { padding: [20, 20], animate: true, duration: 0.5 });
+            } else if (allLatLngs.length === 1) {
+                map.setView(allLatLngs[0], 14, { animate: true, duration: 0.5 });
+            }
+        }
+
+        function getDuration(d, a) {
+            if(!d || !a) return null;
+            const [h1, m1] = d.split(':').map(Number);
+            const [h2, m2] = a.split(':').map(Number);
+            if(isNaN(h1)||isNaN(m1)||isNaN(h2)||isNaN(m2)) return null;
+            let mins = (h2*60+m2) - (h1*60+m1);
+            if(mins < 0) mins += 24*60; 
+            return mins;
+        }
+
+        function getEffectiveTimes(p) {
+            let dTime = p.departTime, aTime = p.arriveTime;
+            const trip = getCurrentTrip();
+            if (p.linkedResId) {
+                const res = trip.reservations.find(r => r.id == p.linkedResId);
+                if (res && res.type === 'transport') {
+                    if (res.departTime) dTime = res.departTime;
+                    if (res.arriveTime) aTime = res.arriveTime;
+                }
+            }
+            return { dTime, aTime };
+        }
+
+        function openResModal(editId = null) {
+            const trip = getCurrentTrip();
+            const editing = editId ? trip.reservations.find(r => r.id === editId) : null;
+            
+            openModal(`
+                <form id="resForm" class="p-6 space-y-4">
+                    <h2 class="font-bold text-gray-800 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
+                    <div>
+                        <label class="text-xs font-bold text-gray-600">종류</label>
+                        <select name="type" onchange="document.getElementById('transportTimes').classList.toggle('hidden', this.value !== 'transport')" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none">
+                            <option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차/배 등)</option>
+                            <option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option>
+                            <option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-600">제목 (필수)</label>
+                        <input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                    </div>
+                    
+                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${(!editing || editing.type==='hotel') ? 'hidden' : ''}">
+                        <div>
+                            <label class="text-xs font-bold text-blue-600">출발 시간</label>
+                            <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-blue-600">도착 시간</label>
+                            <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs font-bold text-gray-600">일시/날짜</label>
+                            <input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-600">메모 (예약번호 등)</label>
+                            <input name="note" value="${editing ? (editing.note||'') : ''}" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-600">바우처 파일 첨부 (이미지/PDF)</label>
+                        <input type="file" id="resFileInput" accept="image/*,.pdf" class="w-full mt-1 text-xs" />
+                        ${editing && editing.voucher ? `<p class="text-[11px] text-blue-600 mt-1">현재 첨부됨: ${editing.voucher.name} (새로 등록 시 덮어씀)</p>` : ''}
+                    </div>
+                    <div class="flex gap-2 pt-4">
+                        <button type="button" onclick="closeModal()" class="flex-1 py-2 rounded border border-gray-300 text-sm">취소</button>
+                        <button type="submit" class="flex-1 py-2 rounded bg-blue-600 text-white text-sm font-bold">저장</button>
+                    </div>
+                </form>
+            `);
+
+            document.getElementById('resForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('resFileInput');
+                
+                const data = {
+                    type: this.type.value,
+                    title: this.title.value.trim(),
+                    date: this.date.value.trim(),
+                    note: this.note.value.trim(),
+                    departTime: this.type.value === 'transport' ? this.departTime.value : '',
+                    arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '',
+                    voucher: editing ? editing.voucher : null
+                };
+
+                const saveAndClose = () => {
+                    if (editing) Object.assign(editing, data);
+                    else trip.reservations.push({ id: Date.now(), ...data });
+                    saveData(); closeModal(); renderUI(true);
+                };
+
+                if (fileInput.files && fileInput.files[0]) {
+                    const file = fileInput.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        data.voucher = { name: file.name, dataUrl: evt.target.result };
+                        saveAndClose();
+                    };
+                    reader.readAsDataURL(file);
+                } else { saveAndClose(); }
+            });
+        }
+
+        function deleteReservation(id) {
+            if(!confirm('이 예약을 삭제할까요?')) return;
+            const trip = getCurrentTrip();
+            trip.reservations = trip.reservations.filter(r => r.id !== id);
+            trip.days.forEach(d => d.forEach(p => { if(p.linkedResId == id) p.linkedResId = ''; }));
+            saveData(); renderUI(true);
+        }
+
+        function viewVoucherModal(resId) {
+            const trip = getCurrentTrip();
+            const res = trip.reservations.find(r => r.id == resId);
+            if(!res) return;
+
+            let voucherHtml = `<p class="text-sm text-gray-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
+            if (res.voucher) {
+                if (res.voucher.dataUrl.startsWith('data:image')) {
+                    voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-gray-200" />`;
+                } else {
+                    voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-blue-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`;
+                }
+            }
+
+            openModal(`
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 class="font-bold text-gray-800 text-lg">${res.title}</h2>
+                            <p class="text-xs text-gray-500 mt-1">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>
+                            ${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-blue-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime}</p>` : ''}
+                        </div>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-red-500 font-bold text-xl leading-none">✕</button>
+                    </div>
+                    ${voucherHtml}
+                </div>
+            `);
+        }
+
+        function renderReservations() {
+            const trip = getCurrentTrip();
+            const container = document.getElementById('reservationList');
+            container.innerHTML = '';
+            
+            if(trip.reservations.length === 0) {
+                container.innerHTML = '<div class="text-center text-sm text-gray-400 py-6">등록된 예약이 없습니다.</div>';
+                return;
+            }
+
+            const icons = { transport: '✈️', hotel: '🏨', other: '🎟️' };
+            trip.reservations.forEach(r => {
+                const div = document.createElement('div');
+                div.className = "bg-white border border-gray-200 p-3 md:p-4 rounded-xl shadow-sm";
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">${icons[r.type]}</span>
+                            <div>
+                                <h3 class="font-bold text-sm text-gray-800">${r.title}</h3>
+                                <p class="text-[11px] text-gray-500 mt-0.5">${r.date} ${r.note ? ` · ${r.note}` : ''}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="openResModal(${r.id})" class="text-[10px] bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">수정</button>
+                            <button onclick="deleteReservation(${r.id})" class="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded hover:bg-red-100">삭제</button>
+                        </div>
+                    </div>
+                    ${r.voucher ? `
+                        <div class="mt-3 pt-2 border-t border-gray-100">
+                            <button onclick="viewVoucherModal(${r.id})" class="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                                📎 ${r.voucher.name} 보기
+                            </button>
+                        </div>
+                    ` : ''}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addChecklistItem() {
+            const input = document.getElementById('checklistInput');
+            const text = input.value.trim();
+            if(!text) return;
+            const trip = getCurrentTrip();
+            trip.checklists.push({ id: Date.now(), text: text, done: false });
+            input.value = ''; saveData(); renderChecklist();
+        }
+        function toggleChecklist(id) {
+            const trip = getCurrentTrip();
+            const item = trip.checklists.find(c => c.id === id);
+            if(item) { item.done = !item.done; saveData(); renderChecklist(); }
+        }
+        function deleteChecklist(id) {
+            const trip = getCurrentTrip();
+            trip.checklists = trip.checklists.filter(c => c.id !== id);
+            saveData(); renderChecklist();
+        }
+        function renderChecklist() {
+            const trip = getCurrentTrip();
+            const container = document.getElementById('checklistContainer');
+            container.innerHTML = '';
+            if(!trip.checklists || trip.checklists.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-xs text-gray-400">준비물이 없습니다.</div>';
+                return;
+            }
+            trip.checklists.forEach(c => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50";
+                div.innerHTML = `
+                    <label class="flex items-center gap-3 cursor-pointer flex-1">
+                        <input type="checkbox" ${c.done ? 'checked' : ''} onchange="toggleChecklist(${c.id})" class="w-4 h-4 text-blue-600 rounded cursor-pointer">
+                        <span class="text-sm ${c.done ? 'line-through text-gray-400' : 'text-gray-700'}">${c.text}</span>
+                    </label>
+                    <button onclick="deleteChecklist(${c.id})" class="text-gray-300 hover:text-red-500 font-bold ml-2">✕</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function toggleDetails(placeId) { 
+            const el = document.getElementById(`details-${placeId}`);
+            if(el) el.classList.toggle('hidden');
+        }
+
+        function renderUI(preserveView = true) {
+            const trip = getCurrentTrip();
+            if(!trip.reservations) trip.reservations = [];
+            if(!trip.checklists) trip.checklists = [];
+
+            document.getElementById('tripSelect').innerHTML = appData.trips.map(t => `<option value="${t.id}" ${t.id===appData.currentTripId?'selected':''}>${t.title}</option>`).join('');
+            
+            renderReservations();
+            renderChecklist();
+
+            const chipContainer = document.getElementById('dayChipsContainer');
+            chipContainer.innerHTML = `
+                <button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border ${appData.currentDayIndex === 'all' ? 'active' : 'border-gray-200 text-gray-600 bg-white'} whitespace-nowrap font-bold">All</button>
+            ` + trip.days.map((d, i) => `
+                <button onclick="selectDay(${i})" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border ${i === appData.currentDayIndex ? 'active' : 'border-gray-200 text-gray-600 bg-white'} whitespace-nowrap">Day ${i + 1}</button>
+            `).join('');
+
+            let dayPlacesList = [];
+            if (appData.currentDayIndex === 'all') {
+                trip.days.forEach((dayPlaces, dIdx) => {
+                    dayPlaces.forEach((p, index) => {
+                        dayPlacesList.push({ ...p, _dIdx: dIdx, _originalIndex: index, _isLastInDay: index === dayPlaces.length - 1 });
+                    });
+                });
+            } else {
+                const dayPlaces = trip.days[appData.currentDayIndex] || [];
+                dayPlacesList = dayPlaces.map((p, index) => ({ ...p, _dIdx: appData.currentDayIndex, _originalIndex: index, _isLastInDay: index === dayPlaces.length - 1 }));
+            }
+
+            const listEl = document.getElementById('dayList'); listEl.innerHTML = '';
+            
+            if (appData.currentDayIndex === 'all' && dayPlacesList.length > 0) {
+                const startDivider = document.createElement('div');
+                startDivider.className = "flex items-center w-full pb-4 pt-2 px-2 opacity-80";
+                startDivider.innerHTML = `
+                    <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                    <div class="px-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-full mx-2 border border-gray-200">Day 1</div>
+                    <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                `;
+                listEl.appendChild(startDivider);
+            }
+            
+            dayPlacesList.forEach((place, listIndex) => {
+                const dayColor = dayColors[place._dIdx % dayColors.length];
+                const catData = categories[place.category || 'sightseeing'];
+                const displayLabel = place.category === 'custom' && place.customLabel ? place.customLabel : catData.label;
+                const hasRes = !!place.linkedResId;
+
+                const curSym = !place.currency || place.currency === 'KRW' ? '원' : place.currency === 'USD' ? '$' : place.currency === 'EUR' ? '€' : '¥';
+                const costText = !place.currency || place.currency === 'KRW' ? `${Number(place.cost).toLocaleString()}원` : `${curSym}${Number(place.cost).toLocaleString()}`;
+
+                const item = document.createElement('div');
+                item.className = `place-item bg-white border border-gray-200 rounded shadow-sm group ${place.visited ? 'opacity-50' : ''}`;
+                item.setAttribute('data-id', place.id);
+                
+                item.innerHTML = `
+                    <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative">
+                        ${appData.currentDayIndex !== 'all' ? `<div class="text-gray-300 hover:text-gray-500 cursor-grab px-1 mt-1">⋮⋮</div>` : '<div class="px-1"></div>'}
+                        
+                        <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold flex-shrink-0 mx-1 md:mx-2 mt-0.5 transition-colors shadow-inner" style="background-color: ${place.visited ? '#9ca3af' : dayColor}">
+                            ${place.visited ? '✓' : place._originalIndex + 1}
+                        </div>
+
+                        <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
+                            <div class="text-xs md:text-sm font-bold text-gray-800 transition ${place.visited ? 'line-through text-gray-400' : 'hover:text-blue-600'}">
+                                ${appData.currentDayIndex === 'all' ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded mr-1" style="background-color:${dayColor}">Day ${place._dIdx + 1}</span>` : ''}
+                                ${place.name} <span class="text-[9px] md:text-[10px] text-gray-400 font-normal ml-1">(상세/수정)</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                <span class="cat-badge ${catData.color}">${displayLabel}</span>
+                                ${place.cost ? `<span class="cat-badge bg-gray-100 text-gray-600">💰 ${costText}</span>` : ''}
+                                ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
+                            </div>
+                            ${place.memo ? `<div class="text-[10px] md:text-[11px] text-gray-500 mt-1.5 truncate pr-2">📝 ${place.memo}</div>` : ''}
+                        </div>
+                        
+                        <div class="flex flex-col gap-1 flex-shrink-0 ml-1 mt-0.5">
+                            <button onclick="map.setView([${place.lat}, ${place.lng}], 16, { animate: true, duration: 0.4 })" class="text-[9px] md:text-[10px] text-blue-500 border border-blue-200 hover:bg-blue-50 px-1.5 md:px-2 py-0.5 md:py-1 rounded">지도</button>
+                            <button onclick="deletePlace(${place.id})" class="text-[9px] md:text-[10px] text-red-400 border border-red-100 hover:bg-red-50 px-1.5 md:px-2 py-0.5 md:py-1 rounded">✕</button>
+                        </div>
+                    </div>
+
+                    <div id="details-${place.id}" class="px-3 pb-3 pt-2 hidden bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
+                        <!-- 세부 설정 내용 유지 -->
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div>
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">카테고리</label>
+                                <div class="flex gap-1 mt-0.5">
+                                    <select onchange="updatePlaceField(${place.id}, 'category', this.value)" class="flex-1 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                                        <option value="sightseeing" ${!place.category || place.category==='sightseeing'?'selected':''}>📸 명소</option>
+                                        <option value="food" ${place.category==='food'?'selected':''}>🍽️ 식당/카페</option>
+                                        <option value="hotel" ${place.category==='hotel'?'selected':''}>🛏️ 숙소</option>
+                                        <option value="transport" ${place.category==='transport'?'selected':''}>🚌 교통</option>
+                                        <option value="custom" ${place.category==='custom'?'selected':''}>📌 직접입력</option>
+                                    </select>
+                                    ${place.category === 'custom' ? `<input type="text" placeholder="입력" value="${place.customLabel||''}" onchange="updatePlaceField(${place.id}, 'customLabel', this.value)" class="w-12 md:w-16 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">` : ''}
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">예상 비용</label>
+                                <div class="flex gap-1 mt-0.5">
+                                    <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
+                                        <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option>
+                                        <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
+                                        <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
+                                        <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
+                                    </select>
+                                    <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${place._originalIndex > 0 ? `
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div>
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">출발 시간 (이전 장소)</label>
+                                <input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
+                            </div>
+                            <div>
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">도착 시간 (이곳에)</label>
+                                <input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="mb-2">
+                            <label class="text-[9px] md:text-[10px] font-bold text-gray-500">연동할 예약/바우처 (시간 자동 반영)</label>
+                            <select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none">
+                                <option value="">선택 안 함</option>
+                                ${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] md:text-[10px] font-bold text-gray-500">메모</label>
+                            <textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-gray-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+                listEl.appendChild(item);
+
+                if (!place._isLastInDay) {
+                    const nextPlace = trip.days[place._dIdx][place._originalIndex + 1];
+                    const routeInfo = document.createElement('div');
+                    routeInfo.className = "flex items-center justify-center gap-1 md:gap-1.5 py-1 -my-0.5 relative z-0";
+                    routeInfo.innerHTML = `
+                        <span class="text-gray-400 text-[10px]">⬇️</span>
+                        <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-gray-100 border border-gray-200 rounded px-1 py-0.5 text-[9px] md:text-[11px] font-bold text-gray-600 outline-none">
+                            <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
+                            <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
+                            <option value="transit" ${nextPlace.transport==='transit'?'selected':''}>🚌 대중</option>
+                            <option value="flight" ${nextPlace.transport==='flight'?'selected':''}>✈️ 항공</option>
+                        </select>
+                        <span id="route-result-${place._dIdx}-${place._originalIndex}" class="text-[9px] md:text-[11px] text-gray-500 font-medium">(계산 중...)</span>
+                    `;
+                    listEl.appendChild(routeInfo);
+                } else if (appData.currentDayIndex === 'all' && listIndex < dayPlacesList.length - 1) {
+                    const nextDayIndex = place._dIdx + 2;
+                    const divider = document.createElement('div');
+                    divider.className = "flex items-center w-full py-4 px-2 opacity-80";
+                    divider.innerHTML = `
+                        <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                        <div class="px-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-full mx-2 border border-gray-200">Day ${nextDayIndex}</div>
+                        <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                    `;
+                    listEl.appendChild(divider);
+                }
+            });
+
+            if(sortableInstance) sortableInstance.destroy();
+            if (appData.currentDayIndex !== 'all') { 
+                sortableInstance = new Sortable(listEl, {
+                    animation: 150, handle: '.cursor-grab', ghostClass: 'sortable-ghost',
+                    onEnd: function () {
+                        const newPlaces = [];
+                        listEl.querySelectorAll('.place-item').forEach(el => {
+                            const id = parseInt(el.getAttribute('data-id'));
+                            newPlaces.push(trip.days[appData.currentDayIndex].find(p => p.id === id));
+                        });
+                        trip.days[appData.currentDayIndex] = newPlaces; saveData(); renderUI(true);
+                    }
+                });
+            }
+
+            renderMapRoutes(preserveView);
+        }
+
+        async function renderMapRoutes(preserveView = true) {
+            const currentRenderId = Date.now();
+            latestRenderId = currentRenderId;
+
+            mapLayers.forEach(layer => map.removeLayer(layer));
+            mapLayers = [];
+            
+            const trip = getCurrentTrip();
+            let allLatLngs = [];
+
+            trip.days.forEach((dayPlaces, dayIndex) => {
+                const defaultColor = dayColors[dayIndex % dayColors.length];
+                
+                dayPlaces.forEach((place, pIndex) => {
+                    const markerColor = place.visited ? '#9ca3af' : defaultColor;
+                    const catIcon = categories[place.category || 'sightseeing'].label.split(' ')[0]; 
+                    
+                    const customIcon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color:${markerColor}; width:24px; height:24px; border-radius:50%; color:white; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:9px; font-weight:bold; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="font-size:7px">${catIcon}</span><span>${place.visited ? '✓' : pIndex + 1}</span></div>`,
+                        iconSize: [24, 24], iconAnchor: [12, 12]
+                    });
+
+                    const marker = L.marker([place.lat, place.lng], {icon: customIcon}).addTo(map)
+                        .bindPopup(`<div style="text-align:center;"><b style="font-size:12px; ${place.visited ? 'text-decoration: line-through; color: gray;' : ''}">${place.name}</b><br><span style="font-size:10px;color:gray;">Day ${dayIndex + 1}</span></div>`);
+                    
+                    mapLayers.push(marker);
+                    allLatLngs.push([place.lat, place.lng]);
+                });
+            });
+
+            if (!preserveView && allLatLngs.length > 0) {
+                if (allLatLngs.length > 1) {
+                    map.fitBounds(L.polyline(allLatLngs).getBounds(), { padding: [20, 20], animate: true, duration: 0.5 });
+                } else {
+                    map.setView(allLatLngs[0], 14, { animate: true, duration: 0.5 });
+                }
+            }
+
+            for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
+                const dayPlaces = trip.days[dayIndex];
+                const baseColor = dayColors[dayIndex % dayColors.length];
+
+                for (let i = 1; i < dayPlaces.length; i++) {
+                    const p1 = dayPlaces[i-1];
+                    const p2 = dayPlaces[i];
+                    
+                    const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor;
+                    const transport = p2.transport || 'car';
+                    const tMeta = transportMeta[transport];
+                    
+                    if (tMeta.profile) {
+                        const url = `https://router.project-osrm.org/route/v1/${tMeta.profile}/${p1.lng},${p1.lat};${p2.lng},${p2.lat}?overview=full&geometries=geojson`;
+                        try {
+                            const response = await fetch(url);
+                            const data = await response.json();
+                            if (latestRenderId !== currentRenderId) return;
+
+                            if (data.code === 'Ok' && data.routes.length > 0) {
+                                const route = data.routes[0];
+                                
+                                mapLayers.push(L.geoJSON(route.geometry, { style: { color: '#ffffff', weight: 6, opacity: 0.9 } }).addTo(map));
+                                mapLayers.push(L.geoJSON(route.geometry, { style: { color: segmentColor, weight: 4, opacity: 1.0 } }).addTo(map));
+
+                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
+                                    const resultEl = document.getElementById(`route-result-${dayIndex}-${i-1}`);
+                                    if (resultEl) {
+                                        const distKm = route.distance / 1000;
+                                        const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); 
+                                        
+                                        let timeStr = '';
+                                        let finalDurStr = '';
+                                        if (transport === 'transit' || transport === 'flight') {
+                                            const { dTime, aTime } = getEffectiveTimes(p2);
+                                            const manualDuration = getDuration(dTime, aTime);
+                                            timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
+                                            finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
+                                        } else {
+                                            finalDurStr = formatDurationKorean(avgMin);
+                                        }
+
+                                        resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> (${distKm.toFixed(1)}km)`;
+                                    }
+                                }
+                            } else {
+                                drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                            }
+                        } catch (e) {
+                            if (latestRenderId === currentRenderId) drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                        }
+                    } else {
+                        drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                    }
+                }
+            }
+        }
+
+        function drawFallback(p1, p2, color, dayIndex, pIndex, transport) {
+            const polyline = L.polyline([[p1.lat, p1.lng], [p2.lat, p2.lng]], { color: color, weight: 3, dashArray: '6, 8' }).addTo(map);
+            mapLayers.push(polyline);
+            
+            if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
+                const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
+                if (resultEl) {
+                    const tMeta = transportMeta[transport];
+                    const distMeters = map.distance([p1.lat, p1.lng], [p2.lat, p2.lng]);
+                    const distKm = distMeters / 1000;
+                    const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60));
+                    
+                    let timeStr = '';
+                    let finalDurStr = '';
+                    if (transport === 'transit' || transport === 'flight') {
+                        const { dTime, aTime } = getEffectiveTimes(p2);
+                        const manualDuration = getDuration(dTime, aTime);
+                        timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
+                        finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
+                    } else {
+                        finalDurStr = formatDurationKorean(avgMin);
+                    }
+
+                    resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> (직선 ${distKm.toFixed(1)}km)`;
+                }
+            }
+        }
+
+        renderUI(false);
+    </script>
+</body>
+</html>
