@@ -20,14 +20,13 @@
         .modal-overlay { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); }
         .day-chip { transition: all 0.15s ease; }
         .day-chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+        html { scroll-behavior: smooth; }
     </style>
 </head>
-<!-- 모바일: 세로(컬럼) 역순 배치, PC(md): 가로 배치 -->
 <body class="flex flex-col-reverse md:flex-row h-screen bg-gray-100 font-sans text-gray-800 overflow-hidden">
 
     <div id="modalRoot" class="hidden fixed inset-0 z-[1000] modal-overlay flex items-center justify-center p-4"></div>
 
-    <!-- 모바일: 높이 60%, 너비 100% / PC: 높이 100%, 너비 450px -->
     <aside class="w-full h-[60%] md:h-full md:w-[450px] bg-white shadow-2xl flex flex-col z-10 flex-shrink-0">
         <!-- 헤더 -->
         <div class="p-3 md:p-5 bg-blue-600 text-white">
@@ -66,7 +65,7 @@
                 <button onclick="addDay()" class="ml-2 text-xs font-bold text-blue-600 whitespace-nowrap">+ 일자 추가</button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-gray-100" id="currentDayContainer">
+            <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-gray-100 scroll-smooth" id="currentDayContainer">
                 <div id="dayList" class="flex flex-col gap-2 min-h-[50px]"></div>
             </div>
         </div>
@@ -91,7 +90,6 @@
         </div>
     </aside>
 
-    <!-- 모바일: 높이 40%, 너비 100% / PC: 남은 영역 모두 차지 -->
     <main class="w-full h-[40%] md:h-full md:flex-1 relative z-0">
         <!-- 지도 클릭 모드 토글 버튼 -->
         <div class="absolute top-2 left-2 md:top-4 md:left-4 z-[400] flex flex-col gap-2">
@@ -103,8 +101,8 @@
         <div id="map" class="w-full h-full relative z-0"></div>
 
         <!-- 배율 초기화(전체 경로 보기) 버튼 -->
-        <div class="absolute top-[45px] right-[10px] md:top-[80px] md:right-[10px] z-[400]">
-            <button onclick="resetMapView()" class="bg-white w-[30px] h-[30px] md:w-[34px] md:h-[34px] rounded-[4px] shadow-[0_1px_5px_rgba(0,0,0,0.65)] flex items-center justify-center hover:bg-gray-50 text-sm md:text-base border-b border-gray-300" title="전체 경로 보기">
+        <div class="absolute top-[90px] right-[10px] z-[400]">
+            <button onclick="resetMapView()" class="bg-white w-[30px] h-[30px] md:w-[34px] md:h-[34px] rounded-[4px] shadow-[0_1px_5px_rgba(0,0,0,0.65)] flex items-center justify-center hover:bg-gray-50 text-sm md:text-base border border-gray-200" title="전체 경로 보기">
                 🗺️
             </button>
         </div>
@@ -114,7 +112,6 @@
     </main>
 
     <script>
-        // 기존 JavaScript 로직 유지
         const dayColors = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0891b2', '#be123c'];
 
         const transportMeta = {
@@ -167,7 +164,6 @@
         let latestRenderId = 0;
         let mapClickMode = false;
 
-        // 창 크기 변경 시 지도 리렌더링 (모바일 화면 전환 대비)
         window.addEventListener('resize', () => {
             if (map) map.invalidateSize();
         });
@@ -271,6 +267,15 @@
             if(p) { p.visited = !p.visited; saveData(); renderUI(true); }
         }
 
+        function scrollToBottom() {
+            setTimeout(() => {
+                const container = document.getElementById('currentDayContainer');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 100); // 렌더링 후 스크롤 되도록 약간의 지연시간을 줌
+        }
+
         async function searchPlace() {
             const query = document.getElementById('searchInput').value.trim();
             if(!query) return;
@@ -285,6 +290,7 @@
                     getCurrentTrip().days[targetDayIdx].push({ id: Date.now(), name: item.display_name.split(',')[0], lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
                     saveData(); renderUI(true); resDiv.classList.add('hidden'); 
                     map.setView([item.lat, item.lon], 15, { animate: true, duration: 0.4 });
+                    scrollToBottom(); // 항목 추가 후 맨 아래로 스크롤
                 };
                 resDiv.appendChild(div);
             });
@@ -299,7 +305,11 @@
                         map.setView([pos.coords.latitude, pos.coords.longitude], 15, { animate: true, duration: 0.4 }); 
                         btn.innerHTML = '🎯'; 
                     },
-                    (err) => { alert("위치 접근을 허용해주세요."); btn.innerHTML = '🎯'; }
+                    (err) => { 
+                        // 설정창 안내 문구로 강화
+                        alert("위치 접근이 차단되어 있습니다.\n모바일 브라우저 주소창 왼쪽의 '자물쇠(또는 aA)' 아이콘을 누르신 후, [위치] 권한을 허용으로 변경해주세요."); 
+                        btn.innerHTML = '🎯'; 
+                    }
                 );
             } else { alert("지원하지 않는 브라우저입니다."); }
         }
@@ -326,6 +336,7 @@
                     id: Date.now(), name: placeName, lat: e.latlng.lat, lng: e.latlng.lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' 
                 });
                 saveData(); renderUI(true);
+                scrollToBottom(); // 지도 클릭으로 항목 추가 후 맨 아래로 스크롤
             }
         });
 
@@ -386,7 +397,7 @@
                     <div>
                         <label class="text-xs font-bold text-gray-600">종류</label>
                         <select name="type" onchange="document.getElementById('transportTimes').classList.toggle('hidden', this.value !== 'transport')" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none">
-                            <option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차/배 등)</option>
+                            <option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option>
                             <option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option>
                             <option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option>
                         </select>
@@ -666,7 +677,6 @@
                     </div>
 
                     <div id="details-${place.id}" class="px-3 pb-3 pt-2 hidden bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
-                        <!-- 세부 설정 내용 유지 -->
                         <div class="grid grid-cols-2 gap-2 mb-2">
                             <div>
                                 <label class="text-[9px] md:text-[10px] font-bold text-gray-500">카테고리</label>
@@ -818,50 +828,44 @@
                     
                     const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor;
                     const transport = p2.transport || 'car';
-                    const tMeta = transportMeta[transport];
+                    const tMeta = transportMeta[transport] || transportMeta['car'];
                     
-                    if (tMeta.profile) {
-                        const url = `https://router.project-osrm.org/route/v1/${tMeta.profile}/${p1.lng},${p1.lat};${p2.lng},${p2.lat}?overview=full&geometries=geojson`;
-                        try {
-                            const response = await fetch(url);
-                            const data = await response.json();
-                            if (latestRenderId !== currentRenderId) return;
+                    (async () => {
+                        if (tMeta.profile) {
+                            const url = `https://router.project-osrm.org/route/v1/${tMeta.profile}/${p1.lng},${p1.lat};${p2.lng},${p2.lat}?overview=full&geometries=geojson`;
+                            try {
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), 5000); 
+                                const response = await fetch(url, { signal: controller.signal });
+                                clearTimeout(timeoutId);
 
-                            if (data.code === 'Ok' && data.routes.length > 0) {
-                                const route = data.routes[0];
-                                
-                                mapLayers.push(L.geoJSON(route.geometry, { style: { color: '#ffffff', weight: 6, opacity: 0.9 } }).addTo(map));
-                                mapLayers.push(L.geoJSON(route.geometry, { style: { color: segmentColor, weight: 4, opacity: 1.0 } }).addTo(map));
+                                const data = await response.json();
+                                if (latestRenderId !== currentRenderId) return;
 
-                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
-                                    const resultEl = document.getElementById(`route-result-${dayIndex}-${i-1}`);
-                                    if (resultEl) {
-                                        const distKm = route.distance / 1000;
-                                        const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); 
-                                        
-                                        let timeStr = '';
-                                        let finalDurStr = '';
-                                        if (transport === 'transit' || transport === 'flight') {
-                                            const { dTime, aTime } = getEffectiveTimes(p2);
-                                            const manualDuration = getDuration(dTime, aTime);
-                                            timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
-                                            finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
-                                        } else {
-                                            finalDurStr = formatDurationKorean(avgMin);
+                                if (data.code === 'Ok' && data.routes.length > 0) {
+                                    const route = data.routes[0];
+                                    
+                                    mapLayers.push(L.geoJSON(route.geometry, { style: { color: '#ffffff', weight: 6, opacity: 0.9 } }).addTo(map));
+                                    mapLayers.push(L.geoJSON(route.geometry, { style: { color: segmentColor, weight: 4, opacity: 1.0 } }).addTo(map));
+
+                                    if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
+                                        const resultEl = document.getElementById(`route-result-${dayIndex}-${i-1}`);
+                                        if (resultEl) {
+                                            const distKm = route.distance / 1000;
+                                            const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); 
+                                            resultEl.innerHTML = `<span class="text-gray-800 font-bold ml-1">약 ${formatDurationKorean(avgMin)}</span> (${distKm.toFixed(1)}km)`;
                                         }
-
-                                        resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> (${distKm.toFixed(1)}km)`;
                                     }
+                                } else {
+                                    drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
                                 }
-                            } else {
-                                drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                            } catch (e) {
+                                if (latestRenderId === currentRenderId) drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
                             }
-                        } catch (e) {
-                            if (latestRenderId === currentRenderId) drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                        } else {
+                            drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
                         }
-                    } else {
-                        drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
-                    }
+                    })();
                 }
             }
         }
@@ -873,23 +877,27 @@
             if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
                 const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
                 if (resultEl) {
-                    const tMeta = transportMeta[transport];
-                    const distMeters = map.distance([p1.lat, p1.lng], [p2.lat, p2.lng]);
-                    const distKm = distMeters / 1000;
-                    const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60));
-                    
-                    let timeStr = '';
-                    let finalDurStr = '';
-                    if (transport === 'transit' || transport === 'flight') {
-                        const { dTime, aTime } = getEffectiveTimes(p2);
-                        const manualDuration = getDuration(dTime, aTime);
-                        timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
-                        finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
-                    } else {
-                        finalDurStr = formatDurationKorean(avgMin);
-                    }
+                    try {
+                        const tMeta = transportMeta[transport] || transportMeta['car'];
+                        const distMeters = map.distance([p1.lat, p1.lng], [p2.lat, p2.lng]);
+                        const distKm = distMeters / 1000;
+                        const avgMin = Math.max(1, Math.round((distKm / (tMeta.speed || 60)) * 60));
+                        
+                        let timeStr = '';
+                        let finalDurStr = '';
+                        if (transport === 'transit' || transport === 'flight') {
+                            const { dTime, aTime } = getEffectiveTimes(p2);
+                            const manualDuration = getDuration(dTime, aTime);
+                            timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
+                            finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
+                        } else {
+                            finalDurStr = formatDurationKorean(avgMin);
+                        }
 
-                    resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> (직선 ${distKm.toFixed(1)}km)`;
+                        resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> (직선 ${distKm.toFixed(1)}km)`;
+                    } catch (e) {
+                        resultEl.innerHTML = `<span class="text-red-500 font-bold ml-1">계산 오류</span>`;
+                    }
                 }
             }
         }
