@@ -118,7 +118,7 @@
             'car': { label: '🚗 차량', profile: 'driving', speed: 65 },
             'walk': { label: '🚶 도보', profile: 'foot', speed: 4 },
             'transit': { label: '✈️/🚌 항공/대중교통', profile: null, speed: 30 },
-            'flight': { label: '✈️/🚌 항공/대중교통', profile: null, speed: 800 } // 하위 호환성 유지용
+            'flight': { label: '✈️/🚌 항공/대중교통', profile: null, speed: 800 } 
         };
 
         const categories = {
@@ -259,7 +259,7 @@
             if(p) { 
                 p[field] = value; 
                 saveData(); 
-                if(['category','transport','linkedResId', 'customLabel', 'currency'].includes(field)) renderUI(true); 
+                if(['category','transport','linkedResId', 'customLabel', 'currency', 'name'].includes(field)) renderUI(true); 
             }
         }
 
@@ -726,6 +726,10 @@
                     </div>
 
                     <div id="details-${place.id}" class="px-3 pb-3 pt-2 hidden bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
+                        <div class="mb-2">
+                            <label class="text-[9px] md:text-[10px] font-bold text-gray-500">장소명 (수정 가능)</label>
+                            <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                        </div>
                         <div class="grid grid-cols-2 gap-2 mb-2">
                             <div>
                                 <label class="text-[9px] md:text-[10px] font-bold text-gray-500">카테고리</label>
