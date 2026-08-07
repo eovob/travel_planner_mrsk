@@ -133,7 +133,7 @@
             currentTripId: 1, currentDayIndex: 0,
             trips: [
                 {
-                    id: 1, title: '🇹🇷 한국-터키 4박 5일 여행', 
+                    id: 1, title: '(샘플) 🇹🇷 한국-터키 4박 5일 여행', 
                     days: [
                         [
                             { id: 101, name: '인천국제공항 (ICN)', lat: 37.4602, lng: 126.4407, category: 'transport', customLabel: '', transport: 'car', visited: true, currency: 'KRW' },
@@ -164,7 +164,7 @@
         let latestRenderId = 0;
         let mapClickMode = false;
         
-        // 열려있는 상세창 ID를 기억하는 Set 추가
+        // 열려있는 상세창 ID를 기억하는 Set
         let expandedPlaceIds = new Set();
 
         window.addEventListener('resize', () => {
@@ -313,7 +313,8 @@
                 `;
                 div.onclick = () => {
                     let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
-                    getCurrentTrip().days[targetDayIdx].push({ id: Date.now(), name: mainName, lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
+                    const newId = Date.now();
+                    getCurrentTrip().days[targetDayIdx].push({ id: newId, name: mainName, lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
                     
                     const searchInput = document.getElementById('searchInput');
                     searchInput.value = '';
@@ -321,6 +322,7 @@
                     resDiv.innerHTML = '';
                     resDiv.classList.add('hidden');
 
+                    expandedPlaceIds.add(newId); // 추가된 장소는 자동으로 창이 열리게 설정
                     saveData(); 
                     renderUI(true); 
                     
@@ -368,9 +370,12 @@
             const placeName = prompt("이 장소의 이름을 입력하세요:", "새로운 장소");
             if (placeName) {
                 let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
+                const newId = Date.now();
                 getCurrentTrip().days[targetDayIdx].push({ 
-                    id: Date.now(), name: placeName, lat: e.latlng.lat, lng: e.latlng.lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' 
+                    id: newId, name: placeName, lat: e.latlng.lat, lng: e.latlng.lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' 
                 });
+                
+                expandedPlaceIds.add(newId); // 지도 클릭 추가 시에도 자동으로 창 열림 유지
                 saveData(); renderUI(true);
                 
                 setTimeout(() => {
@@ -653,7 +658,6 @@
             const el = document.getElementById(`details-${placeId}`);
             if(el) {
                 el.classList.toggle('hidden');
-                // 열림/닫힘 상태를 Set에 저장하여 렌더링 시 유지되도록 함
                 if (el.classList.contains('hidden')) {
                     expandedPlaceIds.delete(placeId);
                 } else {
