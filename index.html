@@ -3,103 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>나만의 여행 계획 (Merged Planner)</title>
-    
+    <title>나만의 여행 계획</title>
+
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" as="style" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Pretendard', 'system-ui', '-apple-system', 'sans-serif'] },
+                    colors: {
+                        navy:  { 900: '#0F2740', 800: '#163A5C', 700: '#1E4A73', 600: '#285D8C', 500: '#3A72A3' },
+                        coral: { 600: '#EB5A3C', 500: '#FF6B4A', 400: '#FF8A6E', 100: '#FFE4DA', 50: '#FFF3EF' },
+                        sand:  { 50: '#FAF7F2', 100: '#F4EFE6', 200: '#EAE2D4' },
+                        ink:   { 800: '#232B33', 700: '#333D48', 600: '#586573', 500: '#7A8794', 400: '#9AA5B1' }
+                    },
+                    boxShadow: {
+                        card: '0 1px 3px rgba(15,39,64,0.06), 0 1px 2px rgba(15,39,64,0.08)',
+                        floating: '0 8px 24px rgba(15,39,64,0.16)'
+                    }
+                }
+            }
+        };
+    </script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <style>
+        * { font-family: 'Pretendard', system-ui, -apple-system, sans-serif; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        .sortable-ghost { opacity: 0.4; background-color: #eff6ff; }
-        .place-item { z-index: 10; position: relative; transition: all 0.2s ease; }
-        .cat-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .modal-overlay { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); }
+        ::-webkit-scrollbar-thumb { background: #D9CFC0; border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        .sortable-ghost { opacity: 0.4; background-color: #FFF3EF; }
+        .place-item { z-index: 10; position: relative; transition: box-shadow 0.2s ease, transform 0.15s ease; }
+        .cat-badge { padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; }
+        .modal-overlay { background: rgba(15, 39, 64, 0.55); backdrop-filter: blur(3px); }
         .day-chip { transition: all 0.15s ease; }
-        .day-chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .day-chip.active { background: linear-gradient(135deg, #FF6B4A, #EB5A3C); color: #fff; border-color: transparent; box-shadow: 0 4px 10px rgba(235,90,60,0.35); }
         html { scroll-behavior: smooth; }
         /* 모바일 롱탭 시 텍스트 선택 및 메뉴 팝업 완벽 차단 */
-        .cursor-grab { 
-            -webkit-touch-callout: none; 
-            -webkit-user-select: none; 
-            user-select: none; 
+        .cursor-grab {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
+        /* 이동 구간 타임라인 커넥터 */
+        .route-connector { position: relative; }
+        .route-connector::before {
+            content: ''; position: absolute; left: 50%; top: -6px; bottom: -6px; width: 2px;
+            background-image: linear-gradient(to bottom, #D9CFC0 60%, transparent 0%);
+            background-size: 2px 8px; background-repeat: repeat-y; transform: translateX(-50%); z-index: 0;
+        }
+        .map-fab { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .map-fab:hover { transform: translateY(-1px); }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .modal-card { animation: modalIn 0.18s ease-out; }
     </style>
 </head>
-<body class="flex flex-col-reverse md:flex-row h-screen bg-gray-100 font-sans text-gray-800 overflow-hidden">
+<body class="flex flex-col-reverse md:flex-row h-screen bg-sand-50 text-ink-800 overflow-hidden" style="color:#232B33;">
 
     <div id="modalRoot" class="hidden fixed inset-0 z-[1000] modal-overlay flex items-center justify-center p-4"></div>
 
     <aside class="w-full h-[60%] md:h-full md:w-[450px] bg-white shadow-2xl flex flex-col z-10 flex-shrink-0">
         <!-- 헤더 -->
-        <div class="p-3 md:p-5 bg-blue-600 text-white">
+        <div class="p-3 md:p-5 bg-gradient-to-br from-navy-900 to-navy-700 text-white">
             <div class="flex justify-between items-center mb-2 md:mb-3">
-                <h1 class="text-lg md:text-xl font-bold flex items-center gap-2">✈️ 여행 플래너</h1>
-                <button onclick="createNewTrip()" class="text-xs bg-white text-blue-600 px-2 py-1 rounded shadow hover:bg-blue-50 font-bold">+ 새 여행</button>
+                <h1 class="text-lg md:text-xl font-extrabold flex items-center gap-2 tracking-tight">
+                    <span class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-base">✈️</span>
+                    여행 플래너
+                </h1>
+                <button onclick="createNewTrip()" class="text-xs bg-coral-500 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:bg-coral-600 font-bold transition">+ 새 여행</button>
             </div>
             <div class="flex gap-2 mb-2 md:mb-3">
-                <select id="tripSelect" onchange="changeTrip()" class="flex-1 text-sm bg-blue-700 border-none text-white rounded p-1.5 md:p-2 outline-none cursor-pointer"></select>
-                <button onclick="deleteCurrentTrip()" class="bg-blue-800 p-1.5 md:p-2 rounded hover:bg-red-500 transition">🗑️</button>
+                <select id="tripSelect" onchange="changeTrip()" class="flex-1 text-sm bg-white/10 border border-white/10 text-white rounded-lg p-1.5 md:p-2 outline-none cursor-pointer"></select>
+                <button onclick="deleteCurrentTrip()" class="bg-white/10 border border-white/10 p-1.5 md:p-2 rounded-lg hover:bg-red-500/80 transition">🗑️</button>
             </div>
-            <button onclick="openShareModal()" class="w-full text-xs font-medium bg-blue-800 text-blue-100 py-1.5 md:py-2 rounded hover:bg-blue-900 transition flex justify-center items-center">
+            <button onclick="openShareModal()" class="w-full text-xs font-semibold bg-white/10 border border-white/10 text-white/90 py-1.5 md:py-2 rounded-lg hover:bg-white/20 transition flex justify-center items-center gap-1.5">
                 📤 내보내기 / 📥 가져오기
             </button>
         </div>
 
         <!-- 3단 탭 -->
-        <div class="flex border-b text-center text-xs md:text-sm font-bold bg-gray-50">
-            <button id="tabItineraryBtn" onclick="switchTab('itinerary')" class="flex-1 py-2 md:py-3 border-b-2 border-blue-600 text-blue-600">🗺️ 일정</button>
-            <button id="tabReservationBtn" onclick="switchTab('reservation')" class="flex-1 py-2 md:py-3 text-gray-400 hover:text-gray-600 border-b-2 border-transparent">🏨 예약/바우처</button>
-            <button id="tabChecklistBtn" onclick="switchTab('checklist')" class="flex-1 py-2 md:py-3 text-gray-400 hover:text-gray-600 border-b-2 border-transparent">✅ 준비물</button>
+        <div class="flex gap-1 p-1.5 bg-sand-100 border-b border-sand-200">
+            <button id="tabItineraryBtn" onclick="switchTab('itinerary')" class="flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold bg-white text-navy-800 shadow-card">🗺️ 일정</button>
+            <button id="tabReservationBtn" onclick="switchTab('reservation')" class="flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold text-ink-600/60 hover:text-navy-700">🏨 예약/바우처</button>
+            <button id="tabChecklistBtn" onclick="switchTab('checklist')" class="flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold text-ink-600/60 hover:text-navy-700">✅ 준비물</button>
         </div>
 
         <!-- [1] 여행 일정 탭 -->
         <div id="itineraryTab" class="flex-1 flex flex-col overflow-hidden">
-            <div class="p-3 md:p-4 border-b bg-white">
+            <div class="p-3 md:p-4 border-b border-sand-200 bg-white">
                 <div class="flex gap-2 relative">
-                    <input type="text" id="searchInput" placeholder="장소 검색 (예: 갈라타 탑)" class="flex-1 px-3 py-1.5 md:py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="if(event.key === 'Enter') searchPlace()">
-                    <button onclick="searchPlace()" class="px-3 md:px-4 py-1.5 md:py-2 bg-gray-800 text-white rounded text-sm hover:bg-gray-700 transition">검색</button>
-                    <div id="searchResults" class="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white rounded border border-gray-200 shadow-xl hidden z-50"></div>
+                    <div class="flex-1 relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 text-sm pointer-events-none">🔍</span>
+                        <input type="text" id="searchInput" placeholder="장소 검색 (예: 갈라타 탑)" class="w-full pl-8 pr-3 py-1.5 md:py-2 border border-sand-200 rounded-lg text-sm bg-sand-50 focus:outline-none focus:ring-2 focus:ring-coral-400 focus:bg-white transition" onkeypress="if(event.key === 'Enter') searchPlace()">
+                    </div>
+                    <button onclick="searchPlace()" class="px-3 md:px-4 py-1.5 md:py-2 bg-navy-800 text-white rounded-lg text-sm font-semibold hover:bg-navy-700 transition">검색</button>
+                    <div id="searchResults" class="absolute top-full left-0 right-0 mt-1.5 max-h-56 overflow-y-auto bg-white rounded-xl border border-sand-200 shadow-floating hidden z-50"></div>
                 </div>
             </div>
             
-            <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b bg-gray-50 flex items-center justify-between">
+            <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b border-sand-200 bg-white flex items-center justify-between">
                 <div id="dayChipsContainer" class="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide"></div>
-                <button onclick="addDay()" class="ml-2 text-xs font-bold text-blue-600 whitespace-nowrap">+ 일자 추가</button>
+                <button onclick="addDay()" class="ml-2 text-xs font-bold text-coral-500 whitespace-nowrap hover:text-coral-600">+ 일자 추가</button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-gray-100 scroll-smooth" id="currentDayContainer">
+            <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-sand-50 scroll-smooth" id="currentDayContainer">
                 <div id="dayList" class="flex flex-col gap-2 min-h-[50px]"></div>
             </div>
         </div>
 
         <!-- [2] 예약/바우처 탭 -->
-        <div id="reservationTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-gray-50 hidden">
+        <div id="reservationTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-sand-50 hidden">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="font-bold text-gray-700 text-base md:text-lg">📝 예약 및 바우처</h2>
-                <button onclick="openResModal()" class="text-xs bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded hover:bg-blue-200">+ 예약 추가</button>
+                <h2 class="font-extrabold text-navy-900 text-base md:text-lg">📝 예약 및 바우처</h2>
+                <button onclick="openResModal()" class="text-xs bg-coral-50 text-coral-600 font-bold px-3 py-1.5 rounded-lg hover:bg-coral-100 transition">+ 예약 추가</button>
             </div>
             <div id="reservationList" class="space-y-3"></div>
         </div>
 
         <!-- [3] 준비물 탭 -->
-        <div id="checklistTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-gray-50 hidden">
-            <h2 class="font-bold text-gray-700 mb-4 text-base md:text-lg">✅ 준비물 챙기기</h2>
+        <div id="checklistTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-sand-50 hidden">
+            <h2 class="font-extrabold text-navy-900 mb-4 text-base md:text-lg">✅ 준비물 챙기기</h2>
             <div class="flex gap-2 mb-4">
-                <input type="text" id="checklistInput" placeholder="예: 여권, 돼지코" class="flex-1 px-3 py-1.5 md:py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="if(event.key === 'Enter') addChecklistItem()">
-                <button onclick="addChecklistItem()" class="px-4 py-1.5 md:py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition">추가</button>
+                <input type="text" id="checklistInput" placeholder="예: 여권, 돼지코" class="flex-1 px-3 py-1.5 md:py-2 border border-sand-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-coral-400 transition" onkeypress="if(event.key === 'Enter') addChecklistItem()">
+                <button onclick="addChecklistItem()" class="px-4 py-1.5 md:py-2 bg-navy-800 text-white rounded-lg text-sm font-semibold hover:bg-navy-700 transition">추가</button>
             </div>
-            <div id="checklistContainer" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"></div>
+            <div id="checklistContainer" class="bg-white border border-sand-200 rounded-xl shadow-card overflow-hidden"></div>
         </div>
     </aside>
 
     <main class="w-full h-[40%] md:h-full md:flex-1 relative z-0">
         <!-- 지도 클릭 모드 토글 버튼 -->
         <div class="absolute top-2 left-2 md:top-4 md:left-4 z-[400] flex flex-col gap-2">
-            <button id="mapModeBtn" onclick="toggleMapMode()" class="bg-white shadow-md rounded-lg px-2 py-1 md:px-3 md:py-2 text-[11px] md:text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 transition">
+            <button id="mapModeBtn" onclick="toggleMapMode()" class="map-fab bg-white shadow-floating rounded-full px-3 py-1.5 md:px-4 md:py-2.5 text-[11px] md:text-sm font-bold text-navy-800 border border-sand-200 hover:bg-sand-50 transition">
                 📍 <span>지도 클릭으로 장소 추가 (OFF)</span>
             </button>
         </div>
@@ -108,17 +148,17 @@
 
         <!-- 배율 초기화(전체 경로 보기) 버튼 -->
         <div class="absolute top-[90px] right-[10px] z-[400]">
-            <button onclick="resetMapView()" class="bg-white w-[30px] h-[30px] md:w-[34px] md:h-[34px] rounded-[4px] shadow-[0_1px_5px_rgba(0,0,0,0.65)] flex items-center justify-center hover:bg-gray-50 text-sm md:text-base border border-gray-200" title="전체 경로 보기">
+            <button onclick="resetMapView()" class="map-fab bg-white w-[34px] h-[34px] md:w-[38px] md:h-[38px] rounded-xl shadow-floating flex items-center justify-center hover:bg-sand-50 text-sm md:text-base border border-sand-200" title="전체 경로 보기">
                 🗺️
             </button>
         </div>
 
         <!-- 내 위치 확인 버튼 -->
-        <button onclick="findMyLocation()" class="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[400] bg-white w-10 h-10 md:w-12 md:h-12 rounded-full shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-xl md:text-2xl transition transform hover:scale-105" title="내 위치 찾기">🎯</button>
+        <button onclick="findMyLocation()" class="map-fab absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[400] bg-navy-800 w-11 h-11 md:w-12 md:h-12 rounded-full shadow-floating border border-navy-900/20 flex items-center justify-center hover:bg-navy-700 text-lg md:text-xl text-white" title="내 위치 찾기">🎯</button>
     </main>
 
     <script>
-        const dayColors = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0891b2', '#be123c'];
+        const dayColors = ['#2E6E9E', '#3F8F6C', '#D9932E', '#C0574B', '#8265B3', '#2E8C8C', '#B85C7E'];
 
         const transportMeta = {
             'car': { label: '🚗 차량', profile: 'driving', speed: 65 },
@@ -128,11 +168,11 @@
         };
 
         const categories = {
-            'sightseeing': { label: '📸 명소', color: 'bg-blue-100 text-blue-700' },
-            'food': { label: '🍽️ 식당', color: 'bg-orange-100 text-orange-700' },
-            'hotel': { label: '🛏️ 숙소', color: 'bg-purple-100 text-purple-700' },
-            'transport': { label: '🚌 교통', color: 'bg-green-100 text-green-700' },
-            'custom': { label: '📌 기타', color: 'bg-gray-200 text-gray-700' }
+            'sightseeing': { label: '📸 명소', color: 'bg-[#E7F1F8] text-[#2C6E9B]' },
+            'food': { label: '🍽️ 식당', color: 'bg-[#FBF1E1] text-[#B36A1D]' },
+            'hotel': { label: '🛏️ 숙소', color: 'bg-[#F1EBFA] text-[#6A4E9E]' },
+            'transport': { label: '🚌 교통', color: 'bg-[#E7F4EE] text-[#2E8C5E]' },
+            'custom': { label: '📌 기타', color: 'bg-[#F7EDF1] text-[#A24E6E]' }
         };
 
         const defaultSampleData = {
@@ -184,13 +224,13 @@
                 const isMatch = tab === tabName;
                 document.getElementById(`${tab}Tab`).classList.toggle('hidden', !isMatch);
                 document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}Btn`).className = 
-                    isMatch ? "flex-1 py-2 md:py-3 border-b-2 border-blue-600 text-blue-600" : "flex-1 py-2 md:py-3 text-gray-400 hover:text-gray-600 border-b-2 border-transparent";
+                    isMatch ? "flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold bg-white text-navy-800 shadow-card" : "flex-1 py-2 md:py-2.5 rounded-lg text-xs md:text-sm font-bold text-ink-600/60 hover:text-navy-700";
             });
         }
 
         function openModal(html) {
             const root = document.getElementById('modalRoot');
-            root.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-[90%] md:w-full max-w-md max-h-[90vh] overflow-y-auto">${html}</div>`;
+            root.innerHTML = `<div class="modal-card bg-white rounded-2xl shadow-2xl w-[90%] md:w-full max-w-md max-h-[90vh] overflow-y-auto">${html}</div>`;
             root.classList.remove('hidden');
         }
         function closeModal() { document.getElementById('modalRoot').classList.add('hidden'); }
@@ -199,16 +239,16 @@
             const trip = getCurrentTrip();
             openModal(`
                 <div class="p-6 space-y-4">
-                    <h2 class="font-bold text-gray-800 text-lg">내보내기 / 가져오기</h2>
+                    <h2 class="font-extrabold text-navy-900 text-lg">내보내기 / 가져오기</h2>
                     <div class="space-y-2">
-                        <button onclick="exportData(true)" class="w-full bg-blue-600 text-white py-2 rounded font-bold">📤 현재 여행만 내보내기</button>
-                        <button onclick="exportData(false)" class="w-full bg-gray-200 text-gray-800 py-2 rounded font-bold">📦 전체 백업 내보내기</button>
+                        <button onclick="exportData(true)" class="w-full bg-coral-500 text-white py-2.5 rounded-lg font-bold hover:bg-coral-600 transition">📤 현재 여행만 내보내기</button>
+                        <button onclick="exportData(false)" class="w-full bg-sand-100 text-navy-800 py-2.5 rounded-lg font-bold hover:bg-sand-200 transition">📦 전체 백업 내보내기</button>
                     </div>
-                    <div class="border-t pt-4">
-                        <label class="text-sm font-bold text-gray-600 block mb-2">가져오기 (.json)</label>
+                    <div class="border-t border-sand-200 pt-4">
+                        <label class="text-sm font-bold text-ink-600 block mb-2">가져오기 (.json)</label>
                         <input type="file" accept=".json" onchange="importData(event)" class="w-full text-xs">
                     </div>
-                    <button onclick="closeModal()" class="w-full py-2 border border-gray-300 rounded text-sm mt-2">닫기</button>
+                    <button onclick="closeModal()" class="w-full py-2.5 border border-sand-200 rounded-lg text-sm font-semibold text-ink-600 hover:bg-sand-50 transition mt-2">닫기</button>
                 </div>
             `);
         }
@@ -311,10 +351,10 @@
                 const subName = parts.slice(1).join(',').trim();
 
                 const div = document.createElement('div');
-                div.className = "p-3 border-b hover:bg-blue-50 cursor-pointer flex flex-col";
+                div.className = "p-3 border-b hover:bg-coral-50 cursor-pointer flex flex-col";
                 div.innerHTML = `
-                    <span class="text-sm font-bold text-gray-800">${mainName}</span>
-                    <span class="text-[10px] text-gray-500 truncate mt-0.5">${subName}</span>
+                    <span class="text-sm font-bold text-navy-900">${mainName}</span>
+                    <span class="text-[10px] text-ink-500 truncate mt-0.5">${subName}</span>
                 `;
                 div.onclick = () => {
                     let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
@@ -362,10 +402,12 @@
             const btn = document.getElementById('mapModeBtn');
             const span = btn.querySelector('span');
             if (mapClickMode) {
-                btn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+                btn.classList.add('bg-coral-500', 'text-white', 'border-coral-500');
+                btn.classList.remove('bg-white', 'text-navy-800', 'border-sand-200');
                 span.textContent = '지도 클릭으로 장소 추가 (ON)';
             } else {
-                btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+                btn.classList.remove('bg-coral-500', 'text-white', 'border-coral-500');
+                btn.classList.add('bg-white', 'text-navy-800', 'border-sand-200');
                 span.textContent = '지도 클릭으로 장소 추가 (OFF)';
             }
         }
@@ -447,71 +489,72 @@
             if (transport === 'transit' || transport === 'flight') {
                 const { dTime, aTime } = getEffectiveTimes(p2);
                 const manualDuration = getDuration(dTime, aTime);
-                timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
+                timeStr = (dTime && aTime) ? `<span class="text-coral-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
                 finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
             } else {
                 finalDurStr = formatDurationKorean(avgMin);
             }
 
             const distText = isFallback ? `(직선 ${distKm.toFixed(1)}km)` : `(${distKm.toFixed(1)}km)`;
-            resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> <span class="text-gray-400 text-[10px] ml-0.5">${distText}</span>`;
+            resultEl.innerHTML = `${timeStr}<span class="text-navy-900 font-bold ml-1">약 ${finalDurStr}</span> <span class="text-ink-400 text-[10px] ml-0.5">${distText}</span>`;
         }
 
         function openResModal(editId = null) {
             const trip = getCurrentTrip();
             const editing = editId ? trip.reservations.find(r => r.id === editId) : null;
+            const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition";
             
             openModal(`
                 <form id="resForm" class="p-6 space-y-4">
-                    <h2 class="font-bold text-gray-800 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
+                    <h2 class="font-extrabold text-navy-900 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
                     <div>
-                        <label class="text-xs font-bold text-gray-600">종류</label>
-                        <select name="type" onchange="document.getElementById('transportTimes').classList.toggle('hidden', this.value !== 'transport')" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none">
+                        <label class="text-xs font-bold text-ink-600">종류</label>
+                        <select name="type" onchange="document.getElementById('transportTimes').classList.toggle('hidden', this.value !== 'transport')" class="${inputCls}">
                             <option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option>
                             <option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option>
                             <option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-gray-600">제목 (필수)</label>
-                        <input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                        <label class="text-xs font-bold text-ink-600">제목 (필수)</label>
+                        <input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="${inputCls}" />
                     </div>
                     
                     <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${(!editing || editing.type==='hotel') ? 'hidden' : ''}">
                         <div>
-                            <label class="text-xs font-bold text-blue-600">출발 시간</label>
-                            <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                            <label class="text-xs font-bold text-coral-600">출발 시간</label>
+                            <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" />
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-blue-600">도착 시간</label>
-                            <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                            <label class="text-xs font-bold text-coral-600">도착 시간</label>
+                            <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" />
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="text-xs font-bold text-gray-600">일시/날짜</label>
-                            <input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                            <label class="text-xs font-bold text-ink-600">일시/날짜</label>
+                            <input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" />
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-gray-600">링크 (URL)</label>
-                            <input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                            <label class="text-xs font-bold text-ink-600">링크 (URL)</label>
+                            <input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="${inputCls}" />
                         </div>
                     </div>
                     
                     <div>
-                        <label class="text-xs font-bold text-gray-600">메모 (예약번호 등)</label>
-                        <input name="note" value="${editing ? (editing.note||'') : ''}" class="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1 outline-none" />
+                        <label class="text-xs font-bold text-ink-600">메모 (예약번호 등)</label>
+                        <input name="note" value="${editing ? (editing.note||'') : ''}" class="${inputCls}" />
                     </div>
                     
                     <div>
-                        <label class="text-xs font-bold text-gray-600">바우처 파일 첨부 (이미지/PDF)</label>
-                        <input type="file" id="resFileInput" accept="image/*,.pdf" class="w-full mt-1 text-xs" />
-                        ${editing && editing.voucher ? `<p class="text-[11px] text-blue-600 mt-1">현재 첨부됨: ${editing.voucher.name} (새로 등록 시 덮어씀)</p>` : ''}
+                        <label class="text-xs font-bold text-ink-600">바우처 파일 첨부 (이미지/PDF)</label>
+                        <input type="file" id="resFileInput" accept="image/*,.pdf" class="w-full mt-1.5 text-xs" />
+                        ${editing && editing.voucher ? `<p class="text-[11px] text-coral-600 mt-1">현재 첨부됨: ${editing.voucher.name} (새로 등록 시 덮어씀)</p>` : ''}
                     </div>
                     <div class="flex gap-2 pt-4">
-                        <button type="button" onclick="closeModal()" class="flex-1 py-2 rounded border border-gray-300 text-sm">취소</button>
-                        <button type="submit" class="flex-1 py-2 rounded bg-blue-600 text-white text-sm font-bold">저장</button>
+                        <button type="button" onclick="closeModal()" class="flex-1 py-2.5 rounded-lg border border-sand-200 text-sm font-semibold text-ink-600 hover:bg-sand-50 transition">취소</button>
+                        <button type="submit" class="flex-1 py-2.5 rounded-lg bg-coral-500 text-white text-sm font-bold hover:bg-coral-600 transition">저장</button>
                     </div>
                 </form>
             `);
@@ -562,12 +605,12 @@
             const res = trip.reservations.find(r => r.id == resId);
             if(!res) return;
 
-            let voucherHtml = `<p class="text-sm text-gray-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
+            let voucherHtml = `<p class="text-sm text-ink-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
             if (res.voucher) {
                 if (res.voucher.dataUrl.startsWith('data:image')) {
-                    voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-gray-200" />`;
+                    voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-sand-200" />`;
                 } else {
-                    voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-blue-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`;
+                    voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-coral-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`;
                 }
             }
 
@@ -575,12 +618,12 @@
                 <div class="p-6">
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex-1 min-w-0 pr-2">
-                            <h2 class="font-bold text-gray-800 text-lg break-words">${res.title}</h2>
-                            <p class="text-xs text-gray-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>
-                            ${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-blue-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}
-                            ${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-blue-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime}</p>` : ''}
+                            <h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2>
+                            <p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>
+                            ${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}
+                            ${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime}</p>` : ''}
                         </div>
-                        <button onclick="closeModal()" class="text-gray-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
+                        <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
                     </div>
                     ${voucherHtml}
                 </div>
@@ -593,32 +636,32 @@
             container.innerHTML = '';
             
             if(trip.reservations.length === 0) {
-                container.innerHTML = '<div class="text-center text-sm text-gray-400 py-6">등록된 예약이 없습니다.</div>';
+                container.innerHTML = '<div class="text-center text-sm text-ink-400 py-6">등록된 예약이 없습니다.</div>';
                 return;
             }
 
             const icons = { transport: '✈️', hotel: '🏨', other: '🎟️' };
             trip.reservations.forEach(r => {
                 const div = document.createElement('div');
-                div.className = "bg-white border border-gray-200 p-3 md:p-4 rounded-xl shadow-sm";
+                div.className = "bg-white border border-sand-200 p-3 md:p-4 rounded-xl shadow-card hover:shadow-floating transition-shadow";
                 div.innerHTML = `
                     <div class="flex justify-between items-start gap-2">
-                        <div class="flex items-start gap-2 flex-1 min-w-0">
-                            <span class="text-xl shrink-0">${icons[r.type]}</span>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="font-bold text-sm text-gray-800 truncate">${r.title}</h3>
-                                <p class="text-[11px] text-gray-500 mt-0.5 break-words">${r.date} ${r.note ? ` · ${r.note}` : ''}</p>
-                                ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-blue-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
+                        <div class="flex items-start gap-2.5 flex-1 min-w-0">
+                            <span class="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-lg shrink-0">${icons[r.type]}</span>
+                            <div class="flex-1 min-w-0 pt-0.5">
+                                <h3 class="font-bold text-sm text-navy-900 truncate">${r.title}</h3>
+                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.date} ${r.note ? ` · ${r.note}` : ''}</p>
+                                ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
                             </div>
                         </div>
                         <div class="flex gap-1 shrink-0 mt-0.5">
-                            <button onclick="openResModal(${r.id})" class="text-[10px] bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">수정</button>
-                            <button onclick="deleteReservation(${r.id})" class="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded hover:bg-red-100">삭제</button>
+                            <button onclick="openResModal(${r.id})" class="text-[10px] font-semibold bg-sand-100 text-ink-700 px-2 py-1 rounded-md hover:bg-sand-200 transition">수정</button>
+                            <button onclick="deleteReservation(${r.id})" class="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
                         </div>
                     </div>
                     ${r.voucher ? `
-                        <div class="mt-3 pt-2 border-t border-gray-100">
-                            <button onclick="viewVoucherModal(${r.id})" class="text-xs text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                        <div class="mt-3 pt-2 border-t border-sand-100">
+                            <button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">
                                 📎 ${r.voucher.name} 보기
                             </button>
                         </div>
@@ -651,18 +694,18 @@
             const container = document.getElementById('checklistContainer');
             container.innerHTML = '';
             if(!trip.checklists || trip.checklists.length === 0) {
-                container.innerHTML = '<div class="p-4 text-center text-xs text-gray-400">준비물이 없습니다.</div>';
+                container.innerHTML = '<div class="p-4 text-center text-xs text-ink-400">준비물이 없습니다.</div>';
                 return;
             }
             trip.checklists.forEach(c => {
                 const div = document.createElement('div');
-                div.className = "flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50";
+                div.className = "flex items-center justify-between p-3 border-b border-sand-100 last:border-0 hover:bg-sand-50 transition";
                 div.innerHTML = `
                     <label class="flex items-center gap-3 cursor-pointer flex-1">
-                        <input type="checkbox" ${c.done ? 'checked' : ''} onchange="toggleChecklist(${c.id})" class="w-4 h-4 text-blue-600 rounded cursor-pointer">
-                        <span class="text-sm ${c.done ? 'line-through text-gray-400' : 'text-gray-700'}">${c.text}</span>
+                        <input type="checkbox" ${c.done ? 'checked' : ''} onchange="toggleChecklist(${c.id})" class="w-4 h-4 accent-coral-500 rounded cursor-pointer">
+                        <span class="text-sm ${c.done ? 'line-through text-ink-400' : 'text-ink-700'}">${c.text}</span>
                     </label>
-                    <button onclick="deleteChecklist(${c.id})" class="text-gray-300 hover:text-red-500 font-bold ml-2">✕</button>
+                    <button onclick="deleteChecklist(${c.id})" class="text-ink-400 hover:text-red-500 font-bold ml-2 transition">✕</button>
                 `;
                 container.appendChild(div);
             });
@@ -692,9 +735,9 @@
 
             const chipContainer = document.getElementById('dayChipsContainer');
             chipContainer.innerHTML = `
-                <button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border ${appData.currentDayIndex === 'all' ? 'active' : 'border-gray-200 text-gray-600 bg-white'} whitespace-nowrap font-bold">All</button>
+                <button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${appData.currentDayIndex === 'all' ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">All</button>
             ` + trip.days.map((d, i) => `
-                <button onclick="selectDay(${i})" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border ${i === appData.currentDayIndex ? 'active' : 'border-gray-200 text-gray-600 bg-white'} whitespace-nowrap">Day ${i + 1}</button>
+                <button onclick="selectDay(${i})" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>
             `).join('');
 
             const listEl = document.getElementById('dayList'); listEl.innerHTML = '';
@@ -704,9 +747,9 @@
                     const divider = document.createElement('div');
                     divider.className = "day-divider flex items-center w-full py-3 px-2 opacity-80";
                     divider.innerHTML = `
-                        <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
-                        <div class="px-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-full mx-2 border border-gray-200">Day ${dIdx + 1}</div>
-                        <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
+                        <div class="flex-1 border-t-2 border-dashed border-sand-200"></div>
+                        <div class="px-4 text-xs font-bold text-ink-500 bg-sand-100 rounded-full mx-2 border border-sand-200">Day ${dIdx + 1}</div>
+                        <div class="flex-1 border-t-2 border-dashed border-sand-200"></div>
                     `;
                     listEl.appendChild(divider);
                 }
@@ -732,69 +775,69 @@
                     }
 
                     const item = document.createElement('div');
-                    item.className = `place-item bg-white border border-gray-200 rounded shadow-sm group ${place.visited ? 'opacity-50' : ''}`;
+                    item.className = `place-item bg-white border border-sand-200 rounded-xl shadow-card hover:shadow-floating transition-shadow group ${place.visited ? 'opacity-50' : ''}`;
                     item.setAttribute('data-id', place.id);
                     
                     const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
 
                     item.innerHTML = `
-                        <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative">
-                            <div class="text-gray-300 hover:text-gray-500 cursor-grab px-1 mt-1 touch-manipulation">⋮⋮</div>
+                        <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative rounded-t-xl">
+                            <div class="text-ink-400 hover:text-ink-600 cursor-grab px-1 mt-1 touch-manipulation">⋮⋮</div>
                             
-                            <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold flex-shrink-0 mx-1 md:mx-2 mt-0.5 transition-colors shadow-inner" style="background-color: ${place.visited ? '#9ca3af' : dayColor}">
+                            <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold flex-shrink-0 mx-1 md:mx-2 mt-0.5 transition-colors ring-2 ring-white shadow-md" style="background-color: ${place.visited ? '#B7BEC6' : dayColor}">
                                 ${place.visited ? '✓' : index + 1}
                             </div>
 
                             <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
-                                <div class="text-xs md:text-sm font-bold text-gray-800 transition ${place.visited ? 'line-through text-gray-400' : 'hover:text-blue-600'}">
-                                    ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded mr-1" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
-                                    ${place.name} <span class="text-[9px] md:text-[10px] text-gray-400 font-normal ml-1">(상세/수정)</span>
+                                <div class="text-xs md:text-sm font-bold text-navy-900 transition ${place.visited ? 'line-through text-ink-400' : 'hover:text-coral-600'}">
+                                    ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded-full mr-1 font-semibold" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
+                                    ${place.name} <span class="text-ink-400 font-normal ml-0.5">›</span>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                                     <span class="cat-badge ${catData.color}">${displayLabel}</span>
-                                    ${place.cost ? `<span class="cat-badge bg-gray-100 text-gray-600">💰 ${costText}</span>` : ''}
+                                    ${place.cost ? `<span class="cat-badge bg-sand-100 text-ink-600">💰 ${costText}</span>` : ''}
                                     ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
                                 </div>
-                                ${place.memo ? `<div class="text-[10px] md:text-[11px] text-gray-500 mt-1.5 truncate pr-2">📝 ${place.memo}</div>` : ''}
+                                ${place.memo ? `<div class="text-[10px] md:text-[11px] text-ink-500 mt-1.5 truncate pr-2">📝 ${place.memo}</div>` : ''}
                             </div>
                             
                             <div class="flex gap-1 flex-shrink-0 ml-1 mt-0.5">
-                                <button onclick="map.setView([${place.lat}, ${place.lng}], 16, { animate: true, duration: 0.4 })" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">지도</button>
-                                <button onclick="deletePlace(${place.id})" class="text-[10px] text-red-500 bg-red-50 px-2 py-1 rounded hover:bg-red-100">삭제</button>
+                                <button onclick="map.setView([${place.lat}, ${place.lng}], 16, { animate: true, duration: 0.4 })" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-2 py-1 rounded-md hover:bg-coral-100 transition">지도</button>
+                                <button onclick="deletePlace(${place.id})" class="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
                             </div>
                         </div>
 
-                        <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
+                        <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-sand-50 relative z-10 border-t border-sand-100 text-[11px] md:text-xs rounded-b-xl">
                             <div class="mb-2">
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">장소명 (수정 가능)</label>
-                                <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[11px]">
+                                <label class="text-[9px] md:text-[10px] font-bold text-ink-500">장소명 (수정 가능)</label>
+                                <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[11px]">
                             </div>
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <div>
-                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">카테고리</label>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-ink-500">카테고리</label>
                                     <div class="flex gap-1 mt-0.5">
-                                        <select onchange="updatePlaceField(${place.id}, 'category', this.value)" class="flex-1 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                                        <select onchange="updatePlaceField(${place.id}, 'category', this.value)" class="flex-1 p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none">
                                             <option value="sightseeing" ${!place.category || place.category==='sightseeing'?'selected':''}>📸 명소</option>
                                             <option value="food" ${place.category==='food'?'selected':''}>🍽️ 식당/카페</option>
                                             <option value="hotel" ${place.category==='hotel'?'selected':''}>🛏️ 숙소</option>
                                             <option value="transport" ${place.category==='transport'?'selected':''}>🚌 교통</option>
                                             <option value="custom" ${place.category==='custom'?'selected':''}>📌 직접입력</option>
                                         </select>
-                                        ${place.category === 'custom' ? `<input type="text" placeholder="입력" value="${place.customLabel||''}" onchange="updatePlaceField(${place.id}, 'customLabel', this.value)" class="w-12 md:w-16 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">` : ''}
+                                        ${place.category === 'custom' ? `<input type="text" placeholder="입력" value="${place.customLabel||''}" onchange="updatePlaceField(${place.id}, 'customLabel', this.value)" class="w-12 md:w-16 p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none">` : ''}
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">예상 비용</label>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-ink-500">예상 비용</label>
                                     <div class="flex gap-1 mt-0.5">
-                                        <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
+                                        <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
                                             <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option>
                                             <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
                                             <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
                                             <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
                                             <option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율)</option>
                                         </select>
-                                        ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">` : ''}
-                                        <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">
+                                        ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">` : ''}
+                                        <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">
                                     </div>
                                 </div>
                             </div>
@@ -802,26 +845,26 @@
                             ${index > 0 ? `
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <div>
-                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">출발 시간 (이전 장소)</label>
-                                    <input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-ink-500">출발 시간 (이전 장소)</label>
+                                    <input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
                                 </div>
                                 <div>
-                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">도착 시간 (이곳에)</label>
-                                    <input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-ink-500">도착 시간 (이곳에)</label>
+                                    <input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
                                 </div>
                             </div>
                             ` : ''}
 
                             <div class="mb-2">
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">연동할 예약/바우처 (시간 자동 반영)</label>
-                                <select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none">
+                                <label class="text-[9px] md:text-[10px] font-bold text-ink-500">연동할 예약/바우처 (시간 자동 반영)</label>
+                                <select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none">
                                     <option value="">선택 안 함</option>
                                     ${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}
                                 </select>
                             </div>
                             <div>
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">메모</label>
-                                <textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-gray-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea>
+                                <label class="text-[9px] md:text-[10px] font-bold text-ink-500">메모</label>
+                                <textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-sand-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea>
                             </div>
                         </div>
                     `;
@@ -830,15 +873,16 @@
                     if (index < dayPlaces.length - 1) {
                         const nextPlace = dayPlaces[index + 1];
                         const routeInfo = document.createElement('div');
-                        routeInfo.className = "flex items-center justify-center gap-1 md:gap-1.5 py-1 -my-0.5 relative z-0";
+                        routeInfo.className = "route-connector flex items-center justify-center gap-1 md:gap-1.5 py-1.5 relative z-0";
                         routeInfo.innerHTML = `
-                            <span class="text-gray-400 text-[10px]">⬇️</span>
-                            <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-gray-100 border border-gray-200 rounded px-1 py-0.5 text-[9px] md:text-[11px] font-bold text-gray-600 outline-none">
-                                <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
-                                <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
-                                <option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
-                            </select>
-                            <span id="route-result-${dIdx}-${index}" class="text-[9px] md:text-[11px] text-gray-500 font-medium">(계산 중...)</span>
+                            <div class="relative z-10 flex items-center gap-1 md:gap-1.5 bg-sand-50 px-1.5 rounded-full">
+                                <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-white border border-sand-200 rounded-full px-2 py-0.5 text-[9px] md:text-[11px] font-bold text-ink-600 outline-none shadow-card cursor-pointer">
+                                    <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
+                                    <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
+                                    <option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
+                                </select>
+                                <span id="route-result-${dIdx}-${index}" class="text-[9px] md:text-[11px] text-ink-500 font-semibold">(계산 중...)</span>
+                            </div>
                         `;
                         listEl.appendChild(routeInfo);
                     }
