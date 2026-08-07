@@ -259,7 +259,8 @@
             if(p) { 
                 p[field] = value; 
                 saveData(); 
-                if(['category','transport','linkedResId', 'customLabel', 'currency', 'name'].includes(field)) renderUI(true); 
+                // 비용이나 환율이 수정되었을 때도 UI를 즉각 업데이트 하도록 추가
+                if(['category','transport','linkedResId', 'customLabel', 'currency', 'name', 'customRate', 'cost'].includes(field)) renderUI(true); 
             }
         }
 
@@ -691,8 +692,20 @@
                 const displayLabel = place.category === 'custom' && place.customLabel ? place.customLabel : catData.label;
                 const hasRes = !!place.linkedResId;
 
-                const curSym = !place.currency || place.currency === 'KRW' ? '원' : place.currency === 'USD' ? '$' : place.currency === 'EUR' ? '€' : '¥';
-                const costText = !place.currency || place.currency === 'KRW' ? `${Number(place.cost).toLocaleString()}원` : `${curSym}${Number(place.cost).toLocaleString()}`;
+                // --- 금액 및 환율 계산 표시 로직 ---
+                let costText = '';
+                if (place.cost) {
+                    if (!place.currency || place.currency === 'KRW') {
+                        costText = `${Number(place.cost).toLocaleString()}원`;
+                    } else if (place.currency === 'CUSTOM') {
+                        const rate = place.customRate ? Number(place.customRate) : 0;
+                        const converted = Math.round(Number(place.cost) * rate);
+                        costText = `${Number(place.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`;
+                    } else {
+                        const curSym = place.currency === 'USD' ? '$' : place.currency === 'EUR' ? '€' : '¥';
+                        costText = `${curSym}${Number(place.cost).toLocaleString()}`;
+                    }
+                }
 
                 const item = document.createElement('div');
                 item.className = `place-item bg-white border border-gray-200 rounded shadow-sm group ${place.visited ? 'opacity-50' : ''}`;
@@ -728,7 +741,7 @@
                     <div id="details-${place.id}" class="px-3 pb-3 pt-2 hidden bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
                         <div class="mb-2">
                             <label class="text-[9px] md:text-[10px] font-bold text-gray-500">장소명 (수정 가능)</label>
-                            <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                            <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[11px]">
                         </div>
                         <div class="grid grid-cols-2 gap-2 mb-2">
                             <div>
@@ -752,8 +765,10 @@
                                         <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
                                         <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
                                         <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
+                                        <option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율입력)</option>
                                     </select>
-                                    <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                                    ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">` : ''}
+                                    <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">
                                 </div>
                             </div>
                         </div>
