@@ -117,8 +117,8 @@
         const transportMeta = {
             'car': { label: '🚗 차량', profile: 'driving', speed: 65 },
             'walk': { label: '🚶 도보', profile: 'foot', speed: 4 },
-            'transit': { label: '🚌 대중교통', profile: null, speed: 30 },
-            'flight': { label: '✈️ 항공', profile: null, speed: 800 }
+            'transit': { label: '✈️/🚌 항공/대중교통', profile: null, speed: 30 },
+            'flight': { label: '✈️/🚌 항공/대중교통', profile: null, speed: 800 } // 하위 호환성 유지용
         };
 
         const categories = {
@@ -137,7 +137,7 @@
                     days: [
                         [
                             { id: 101, name: '인천국제공항 (ICN)', lat: 37.4602, lng: 126.4407, category: 'transport', customLabel: '', transport: 'car', visited: true, currency: 'KRW' },
-                            { id: 102, name: '이스탄불 공항 (IST)', lat: 41.2753, lng: 28.7289, category: 'transport', customLabel: '', transport: 'flight', visited: false, currency: 'KRW' },
+                            { id: 102, name: '이스탄불 공항 (IST)', lat: 41.2753, lng: 28.7289, category: 'transport', customLabel: '', transport: 'transit', visited: false, currency: 'KRW' },
                             { id: 103, name: '콘래드 이스탄불 보스포루스', lat: 41.0487, lng: 29.0063, category: 'hotel', customLabel: '', transport: 'car', visited: false, currency: 'KRW' }
                         ],
                         [
@@ -304,10 +304,9 @@
                     let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
                     getCurrentTrip().days[targetDayIdx].push({ id: Date.now(), name: mainName, lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
                     
-                    // 선택 시 검색창 닫기 및 초기화 처리
                     const searchInput = document.getElementById('searchInput');
                     searchInput.value = '';
-                    searchInput.blur(); // 모바일 가상 키보드 숨기기
+                    searchInput.blur(); 
                     resDiv.innerHTML = '';
                     resDiv.classList.add('hidden');
 
@@ -370,7 +369,6 @@
             }
         });
 
-        // ------------------ 시간 계산 공통 함수 (기존 원본 버전 복구) ------------------
         function formatDurationKorean(totalMinutes) {
             if (totalMinutes <= 0) return '[0분]';
             const days = Math.floor(totalMinutes / (24 * 60));
@@ -382,6 +380,17 @@
             if (hours > 0) result.push(`${hours}시간`);
             if (minutes > 0) result.push(`${minutes}분`);
             return `[${result.join(' ')}]`;
+        }
+
+        function resetMapView() {
+            const trip = getCurrentTrip();
+            let allLatLngs = [];
+            trip.days.forEach(day => day.forEach(p => allLatLngs.push([p.lat, p.lng])));
+            if (allLatLngs.length > 1) {
+                map.fitBounds(L.polyline(allLatLngs).getBounds(), { padding: [20, 20], animate: true, duration: 0.5 });
+            } else if (allLatLngs.length === 1) {
+                map.setView(allLatLngs[0], 14, { animate: true, duration: 0.5 });
+            }
         }
 
         function getDuration(d, a) {
@@ -407,7 +416,6 @@
             return { dTime, aTime };
         }
 
-        // 경로 계산 텍스트 업데이트 로직 일원화 (기존 버전과 100% 동일하게 복구)
         function updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, isFallback = false) {
             const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
             if (!resultEl) return;
@@ -426,18 +434,6 @@
 
             const distText = isFallback ? `(직선 ${distKm.toFixed(1)}km)` : `(${distKm.toFixed(1)}km)`;
             resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> <span class="text-gray-400 text-[10px] ml-0.5">${distText}</span>`;
-        }
-        // ---------------------------------------------------------
-
-        function resetMapView() {
-            const trip = getCurrentTrip();
-            let allLatLngs = [];
-            trip.days.forEach(day => day.forEach(p => allLatLngs.push([p.lat, p.lng])));
-            if (allLatLngs.length > 1) {
-                map.fitBounds(L.polyline(allLatLngs).getBounds(), { padding: [20, 20], animate: true, duration: 0.5 });
-            } else if (allLatLngs.length === 1) {
-                map.setView(allLatLngs[0], 14, { animate: true, duration: 0.5 });
-            }
         }
 
         function openResModal(editId = null) {
@@ -795,8 +791,7 @@
                         <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-gray-100 border border-gray-200 rounded px-1 py-0.5 text-[9px] md:text-[11px] font-bold text-gray-600 outline-none">
                             <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
                             <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
-                            <option value="transit" ${nextPlace.transport==='transit'?'selected':''}>🚌 대중</option>
-                            <option value="flight" ${nextPlace.transport==='flight'?'selected':''}>✈️ 항공</option>
+                            <option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
                         </select>
                         <span id="route-result-${place._dIdx}-${place._originalIndex}" class="text-[9px] md:text-[11px] text-gray-500 font-medium">(계산 중...)</span>
                     `;
