@@ -67,7 +67,11 @@
 
     <div id="modalRoot" class="hidden fixed inset-0 z-[1000] modal-overlay flex items-center justify-center p-4"></div>
 
-    <aside class="w-full h-[60%] md:h-full md:w-[450px] bg-white shadow-2xl flex flex-col z-10 flex-shrink-0">
+    <aside id="plannerPanel" class="w-full h-[60%] md:h-full md:w-[450px] bg-white shadow-2xl flex flex-col z-10 flex-shrink-0">
+        <!-- 드래그 핸들 (모바일 전용, 바텀시트 크기 조절) -->
+        <div id="dragHandle" class="md:hidden w-full flex justify-center pt-2 pb-1 bg-navy-900 cursor-grab active:cursor-grabbing touch-none select-none">
+            <div class="w-10 h-1.5 rounded-full bg-white/30"></div>
+        </div>
         <!-- 헤더 -->
         <div class="p-3 md:p-5 bg-gradient-to-br from-navy-900 to-navy-700 text-white">
             <div class="flex justify-between items-center mb-2 md:mb-3">
@@ -1056,6 +1060,61 @@
                 }
             }
         }
+
+        /* ============ 모바일 바텀시트 드래그 리사이즈 ============ */
+        (function initPlannerDrag() {
+            const panel = document.getElementById('plannerPanel');
+            const handle = document.getElementById('dragHandle');
+            const MIN_VH = 60; // 최소 크기: 현재 기본 화면 비율(60%) 유지
+            const MAX_VH = 92; // 최대 크기: 지도가 살짝 보이도록 92%까지만 확장
+
+            function isMobileLayout() { return window.innerWidth < 768; }
+            function getCurrentHeightVh() {
+                return (panel.getBoundingClientRect().height / window.innerHeight) * 100;
+            }
+
+            let startY = 0;
+            let startVh = MIN_VH;
+            let dragging = false;
+
+            function dragStart(clientY) {
+                if (!isMobileLayout()) return;
+                dragging = true;
+                startY = clientY;
+                startVh = getCurrentHeightVh();
+            }
+            function dragMove(clientY) {
+                if (!dragging || !isMobileLayout()) return;
+                const deltaVh = ((startY - clientY) / window.innerHeight) * 100;
+                let newVh = startVh + deltaVh;
+                newVh = Math.max(MIN_VH, Math.min(MAX_VH, newVh));
+                panel.style.height = newVh + 'vh';
+            }
+            function dragEnd() { dragging = false; }
+
+            handle.addEventListener('touchstart', (e) => dragStart(e.touches[0].clientY), { passive: true });
+            handle.addEventListener('touchmove', (e) => dragMove(e.touches[0].clientY), { passive: true });
+            handle.addEventListener('touchend', dragEnd);
+            handle.addEventListener('touchcancel', dragEnd);
+
+            handle.addEventListener('mousedown', (e) => {
+                dragStart(e.clientY);
+                const onMove = (ev) => dragMove(ev.clientY);
+                const onUp = () => { dragEnd(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            // 데스크톱 전환 시 인라인 높이 초기화 (md:h-full이 다시 적용되도록)
+            window.addEventListener('resize', () => {
+                if (!isMobileLayout()) { panel.style.height = ''; return; }
+                // 모바일 상태에서 창 크기가 바뀌면 현재 비율을 최소/최대 범위 내로 재조정
+                if (panel.style.height) {
+                    const clamped = Math.max(MIN_VH, Math.min(MAX_VH, getCurrentHeightVh()));
+                    panel.style.height = clamped + 'vh';
+                }
+            });
+        })();
 
         renderUI(false);
     </script>
