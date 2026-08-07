@@ -272,9 +272,14 @@
             setTimeout(() => {
                 const container = document.getElementById('currentDayContainer');
                 if (container) {
-                    container.scrollTop = container.scrollHeight;
+                    const items = container.querySelectorAll('.place-item');
+                    if(items.length > 0) {
+                        items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        container.scrollTop = container.scrollHeight;
+                    }
                 }
-            }, 100); 
+            }, 150); 
         }
 
         async function searchPlace() {
@@ -283,15 +288,36 @@
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
             const data = await res.json();
             const resDiv = document.getElementById('searchResults'); resDiv.innerHTML = ''; resDiv.classList.remove('hidden');
+            
             data.forEach(item => {
-                const div = document.createElement('div'); div.className = "p-3 border-b hover:bg-blue-50 cursor-pointer text-sm font-bold";
-                div.innerText = item.display_name.split(',')[0];
+                const parts = item.display_name.split(',');
+                const mainName = parts[0];
+                const subName = parts.slice(1).join(',').trim();
+
+                const div = document.createElement('div');
+                div.className = "p-3 border-b hover:bg-blue-50 cursor-pointer flex flex-col";
+                div.innerHTML = `
+                    <span class="text-sm font-bold text-gray-800">${mainName}</span>
+                    <span class="text-[10px] text-gray-500 truncate mt-0.5">${subName}</span>
+                `;
                 div.onclick = () => {
                     let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
-                    getCurrentTrip().days[targetDayIdx].push({ id: Date.now(), name: item.display_name.split(',')[0], lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
-                    saveData(); renderUI(true); resDiv.classList.add('hidden'); 
-                    map.setView([item.lat, item.lon], 15, { animate: true, duration: 0.4 });
-                    scrollToBottom();
+                    getCurrentTrip().days[targetDayIdx].push({ id: Date.now(), name: mainName, lat: parseFloat(item.lat), lng: parseFloat(item.lon), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
+                    
+                    // 선택 시 검색창 닫기 및 초기화 처리
+                    const searchInput = document.getElementById('searchInput');
+                    searchInput.value = '';
+                    searchInput.blur(); // 모바일 가상 키보드 숨기기
+                    resDiv.innerHTML = '';
+                    resDiv.classList.add('hidden');
+
+                    saveData(); 
+                    renderUI(true); 
+                    
+                    setTimeout(() => {
+                        map.setView([item.lat, item.lon], 16, { animate: true, duration: 0.5 });
+                        scrollToBottom();
+                    }, 100);
                 };
                 resDiv.appendChild(div);
             });
@@ -336,10 +362,15 @@
                     id: Date.now(), name: placeName, lat: e.latlng.lat, lng: e.latlng.lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' 
                 });
                 saveData(); renderUI(true);
-                scrollToBottom();
+                
+                setTimeout(() => {
+                    map.setView(e.latlng, 16, { animate: true, duration: 0.5 });
+                    scrollToBottom();
+                }, 100);
             }
         });
 
+        // ------------------ 시간 계산 공통 함수 (기존 원본 버전 복구) ------------------
         function formatDurationKorean(totalMinutes) {
             if (totalMinutes <= 0) return '[0분]';
             const days = Math.floor(totalMinutes / (24 * 60));
@@ -351,17 +382,6 @@
             if (hours > 0) result.push(`${hours}시간`);
             if (minutes > 0) result.push(`${minutes}분`);
             return `[${result.join(' ')}]`;
-        }
-
-        function resetMapView() {
-            const trip = getCurrentTrip();
-            let allLatLngs = [];
-            trip.days.forEach(day => day.forEach(p => allLatLngs.push([p.lat, p.lng])));
-            if (allLatLngs.length > 1) {
-                map.fitBounds(L.polyline(allLatLngs).getBounds(), { padding: [20, 20], animate: true, duration: 0.5 });
-            } else if (allLatLngs.length === 1) {
-                map.setView(allLatLngs[0], 14, { animate: true, duration: 0.5 });
-            }
         }
 
         function getDuration(d, a) {
@@ -385,6 +405,39 @@
                 }
             }
             return { dTime, aTime };
+        }
+
+        // 경로 계산 텍스트 업데이트 로직 일원화 (기존 버전과 100% 동일하게 복구)
+        function updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, isFallback = false) {
+            const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
+            if (!resultEl) return;
+
+            let timeStr = '';
+            let finalDurStr = '';
+            
+            if (transport === 'transit' || transport === 'flight') {
+                const { dTime, aTime } = getEffectiveTimes(p2);
+                const manualDuration = getDuration(dTime, aTime);
+                timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
+                finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
+            } else {
+                finalDurStr = formatDurationKorean(avgMin);
+            }
+
+            const distText = isFallback ? `(직선 ${distKm.toFixed(1)}km)` : `(${distKm.toFixed(1)}km)`;
+            resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> <span class="text-gray-400 text-[10px] ml-0.5">${distText}</span>`;
+        }
+        // ---------------------------------------------------------
+
+        function resetMapView() {
+            const trip = getCurrentTrip();
+            let allLatLngs = [];
+            trip.days.forEach(day => day.forEach(p => allLatLngs.push([p.lat, p.lng])));
+            if (allLatLngs.length > 1) {
+                map.fitBounds(L.polyline(allLatLngs).getBounds(), { padding: [20, 20], animate: true, duration: 0.5 });
+            } else if (allLatLngs.length === 1) {
+                map.setView(allLatLngs[0], 14, { animate: true, duration: 0.5 });
+            }
         }
 
         function openResModal(editId = null) {
@@ -849,12 +902,9 @@
                                     mapLayers.push(L.geoJSON(route.geometry, { style: { color: segmentColor, weight: 4, opacity: 1.0 } }).addTo(map));
 
                                     if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
-                                        const resultEl = document.getElementById(`route-result-${dayIndex}-${i-1}`);
-                                        if (resultEl) {
-                                            const distKm = route.distance / 1000;
-                                            const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); 
-                                            resultEl.innerHTML = `<span class="text-gray-800 font-bold ml-1">약 ${formatDurationKorean(avgMin)}</span> (${distKm.toFixed(1)}km)`;
-                                        }
+                                        const distKm = route.distance / 1000;
+                                        const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); 
+                                        updateRouteResult(dayIndex, i-1, p2, avgMin, distKm, transport, false);
                                     }
                                 } else {
                                     drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
@@ -875,29 +925,16 @@
             mapLayers.push(polyline);
             
             if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
-                const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
-                if (resultEl) {
-                    try {
-                        const tMeta = transportMeta[transport] || transportMeta['car'];
-                        const distMeters = map.distance([p1.lat, p1.lng], [p2.lat, p2.lng]);
-                        const distKm = distMeters / 1000;
-                        const avgMin = Math.max(1, Math.round((distKm / (tMeta.speed || 60)) * 60));
-                        
-                        let timeStr = '';
-                        let finalDurStr = '';
-                        if (transport === 'transit' || transport === 'flight') {
-                            const { dTime, aTime } = getEffectiveTimes(p2);
-                            const manualDuration = getDuration(dTime, aTime);
-                            timeStr = (dTime && aTime) ? `<span class="text-blue-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
-                            finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
-                        } else {
-                            finalDurStr = formatDurationKorean(avgMin);
-                        }
-
-                        resultEl.innerHTML = `${timeStr}<span class="text-gray-800 font-bold ml-1">약 ${finalDurStr}</span> (직선 ${distKm.toFixed(1)}km)`;
-                    } catch (e) {
-                        resultEl.innerHTML = `<span class="text-red-500 font-bold ml-1">계산 오류</span>`;
-                    }
+                try {
+                    const tMeta = transportMeta[transport] || transportMeta['car'];
+                    const distMeters = map.distance([p1.lat, p1.lng], [p2.lat, p2.lng]);
+                    const distKm = distMeters / 1000;
+                    const avgMin = Math.max(1, Math.round((distKm / (tMeta.speed || 60)) * 60));
+                    
+                    updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, true);
+                } catch (e) {
+                    const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
+                    if (resultEl) resultEl.innerHTML = `<span class="text-red-500 font-bold ml-1">계산 오류</span>`;
                 }
             }
         }
