@@ -322,7 +322,7 @@
                     resDiv.innerHTML = '';
                     resDiv.classList.add('hidden');
 
-                    expandedPlaceIds.add(newId); // 추가된 장소는 자동으로 창이 열리게 설정
+                    expandedPlaceIds.add(newId); 
                     saveData(); 
                     renderUI(true); 
                     
@@ -375,7 +375,7 @@
                     id: newId, name: placeName, lat: e.latlng.lat, lng: e.latlng.lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' 
                 });
                 
-                expandedPlaceIds.add(newId); // 지도 클릭 추가 시에도 자동으로 창 열림 유지
+                expandedPlaceIds.add(newId);
                 saveData(); renderUI(true);
                 
                 setTimeout(() => {
@@ -683,189 +683,211 @@
                 <button onclick="selectDay(${i})" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border ${i === appData.currentDayIndex ? 'active' : 'border-gray-200 text-gray-600 bg-white'} whitespace-nowrap">Day ${i + 1}</button>
             `).join('');
 
-            let dayPlacesList = [];
-            if (appData.currentDayIndex === 'all') {
-                trip.days.forEach((dayPlaces, dIdx) => {
-                    dayPlaces.forEach((p, index) => {
-                        dayPlacesList.push({ ...p, _dIdx: dIdx, _originalIndex: index, _isLastInDay: index === dayPlaces.length - 1 });
-                    });
-                });
-            } else {
-                const dayPlaces = trip.days[appData.currentDayIndex] || [];
-                dayPlacesList = dayPlaces.map((p, index) => ({ ...p, _dIdx: appData.currentDayIndex, _originalIndex: index, _isLastInDay: index === dayPlaces.length - 1 }));
-            }
-
             const listEl = document.getElementById('dayList'); listEl.innerHTML = '';
-            
-            if (appData.currentDayIndex === 'all' && dayPlacesList.length > 0) {
-                const startDivider = document.createElement('div');
-                startDivider.className = "flex items-center w-full pb-4 pt-2 px-2 opacity-80";
-                startDivider.innerHTML = `
-                    <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
-                    <div class="px-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-full mx-2 border border-gray-200">Day 1</div>
-                    <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
-                `;
-                listEl.appendChild(startDivider);
-            }
-            
-            dayPlacesList.forEach((place, listIndex) => {
-                const dayColor = dayColors[place._dIdx % dayColors.length];
-                const catData = categories[place.category || 'sightseeing'];
-                const displayLabel = place.category === 'custom' && place.customLabel ? place.customLabel : catData.label;
-                const hasRes = !!place.linkedResId;
 
-                let costText = '';
-                if (place.cost) {
-                    if (!place.currency || place.currency === 'KRW') {
-                        costText = `${Number(place.cost).toLocaleString()}원`;
-                    } else if (place.currency === 'CUSTOM') {
-                        const rate = place.customRate ? Number(place.customRate) : 0;
-                        const converted = Math.round(Number(place.cost) * rate);
-                        costText = `${Number(place.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`;
-                    } else {
-                        const curSym = place.currency === 'USD' ? '$' : place.currency === 'EUR' ? '€' : '¥';
-                        costText = `${curSym}${Number(place.cost).toLocaleString()}`;
-                    }
-                }
-
-                const item = document.createElement('div');
-                item.className = `place-item bg-white border border-gray-200 rounded shadow-sm group ${place.visited ? 'opacity-50' : ''}`;
-                item.setAttribute('data-id', place.id);
-                
-                // 기억해둔 창 열림/닫힘 상태 적용
-                const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
-
-                item.innerHTML = `
-                    <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative">
-                        ${appData.currentDayIndex !== 'all' ? `<div class="text-gray-300 hover:text-gray-500 cursor-grab px-1 mt-1">⋮⋮</div>` : '<div class="px-1"></div>'}
-                        
-                        <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold flex-shrink-0 mx-1 md:mx-2 mt-0.5 transition-colors shadow-inner" style="background-color: ${place.visited ? '#9ca3af' : dayColor}">
-                            ${place.visited ? '✓' : place._originalIndex + 1}
-                        </div>
-
-                        <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
-                            <div class="text-xs md:text-sm font-bold text-gray-800 transition ${place.visited ? 'line-through text-gray-400' : 'hover:text-blue-600'}">
-                                ${appData.currentDayIndex === 'all' ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded mr-1" style="background-color:${dayColor}">Day ${place._dIdx + 1}</span>` : ''}
-                                ${place.name} <span class="text-[9px] md:text-[10px] text-gray-400 font-normal ml-1">(상세/수정)</span>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                <span class="cat-badge ${catData.color}">${displayLabel}</span>
-                                ${place.cost ? `<span class="cat-badge bg-gray-100 text-gray-600">💰 ${costText}</span>` : ''}
-                                ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
-                            </div>
-                            ${place.memo ? `<div class="text-[10px] md:text-[11px] text-gray-500 mt-1.5 truncate pr-2">📝 ${place.memo}</div>` : ''}
-                        </div>
-                        
-                        <div class="flex gap-1 flex-shrink-0 ml-1 mt-0.5">
-                            <button onclick="map.setView([${place.lat}, ${place.lng}], 16, { animate: true, duration: 0.4 })" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">지도</button>
-                            <button onclick="deletePlace(${place.id})" class="text-[10px] text-red-500 bg-red-50 px-2 py-1 rounded hover:bg-red-100">삭제</button>
-                        </div>
-                    </div>
-
-                    <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
-                        <div class="mb-2">
-                            <label class="text-[9px] md:text-[10px] font-bold text-gray-500">장소명 (수정 가능)</label>
-                            <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[11px]">
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 mb-2">
-                            <div>
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">카테고리</label>
-                                <div class="flex gap-1 mt-0.5">
-                                    <select onchange="updatePlaceField(${place.id}, 'category', this.value)" class="flex-1 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
-                                        <option value="sightseeing" ${!place.category || place.category==='sightseeing'?'selected':''}>📸 명소</option>
-                                        <option value="food" ${place.category==='food'?'selected':''}>🍽️ 식당/카페</option>
-                                        <option value="hotel" ${place.category==='hotel'?'selected':''}>🛏️ 숙소</option>
-                                        <option value="transport" ${place.category==='transport'?'selected':''}>🚌 교통</option>
-                                        <option value="custom" ${place.category==='custom'?'selected':''}>📌 직접입력</option>
-                                    </select>
-                                    ${place.category === 'custom' ? `<input type="text" placeholder="입력" value="${place.customLabel||''}" onchange="updatePlaceField(${place.id}, 'customLabel', this.value)" class="w-12 md:w-16 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">` : ''}
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">예상 비용</label>
-                                <div class="flex gap-1 mt-0.5">
-                                    <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
-                                        <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option>
-                                        <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
-                                        <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
-                                        <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
-                                        <option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율입력)</option>
-                                    </select>
-                                    ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">` : ''}
-                                    <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        ${place._originalIndex > 0 ? `
-                        <div class="grid grid-cols-2 gap-2 mb-2">
-                            <div>
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">출발 시간 (이전 장소)</label>
-                                <input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
-                            </div>
-                            <div>
-                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">도착 시간 (이곳에)</label>
-                                <input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
-                            </div>
-                        </div>
-                        ` : ''}
-
-                        <div class="mb-2">
-                            <label class="text-[9px] md:text-[10px] font-bold text-gray-500">연동할 예약/바우처 (시간 자동 반영)</label>
-                            <select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none">
-                                <option value="">선택 안 함</option>
-                                ${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-[9px] md:text-[10px] font-bold text-gray-500">메모</label>
-                            <textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-gray-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea>
-                        </div>
-                    </div>
-                `;
-                listEl.appendChild(item);
-
-                if (!place._isLastInDay) {
-                    const nextPlace = trip.days[place._dIdx][place._originalIndex + 1];
-                    const routeInfo = document.createElement('div');
-                    routeInfo.className = "flex items-center justify-center gap-1 md:gap-1.5 py-1 -my-0.5 relative z-0";
-                    routeInfo.innerHTML = `
-                        <span class="text-gray-400 text-[10px]">⬇️</span>
-                        <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-gray-100 border border-gray-200 rounded px-1 py-0.5 text-[9px] md:text-[11px] font-bold text-gray-600 outline-none">
-                            <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
-                            <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
-                            <option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
-                        </select>
-                        <span id="route-result-${place._dIdx}-${place._originalIndex}" class="text-[9px] md:text-[11px] text-gray-500 font-medium">(계산 중...)</span>
-                    `;
-                    listEl.appendChild(routeInfo);
-                } else if (appData.currentDayIndex === 'all' && listIndex < dayPlacesList.length - 1) {
-                    const nextDayIndex = place._dIdx + 2;
+            const renderDayPlaces = (dayPlaces, dIdx, isAllView) => {
+                if (isAllView && dayPlaces.length > 0) {
                     const divider = document.createElement('div');
-                    divider.className = "flex items-center w-full py-4 px-2 opacity-80";
+                    divider.className = "day-divider flex items-center w-full py-3 px-2 opacity-80";
                     divider.innerHTML = `
                         <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
-                        <div class="px-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-full mx-2 border border-gray-200">Day ${nextDayIndex}</div>
+                        <div class="px-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-full mx-2 border border-gray-200">Day ${dIdx + 1}</div>
                         <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
                     `;
                     listEl.appendChild(divider);
                 }
-            });
+
+                dayPlaces.forEach((place, index) => {
+                    const dayColor = dayColors[dIdx % dayColors.length];
+                    const catData = categories[place.category || 'sightseeing'];
+                    const displayLabel = place.category === 'custom' && place.customLabel ? place.customLabel : catData.label;
+                    const hasRes = !!place.linkedResId;
+
+                    let costText = '';
+                    if (place.cost) {
+                        if (!place.currency || place.currency === 'KRW') {
+                            costText = `${Number(place.cost).toLocaleString()}원`;
+                        } else if (place.currency === 'CUSTOM') {
+                            const rate = place.customRate ? Number(place.customRate) : 0;
+                            const converted = Math.round(Number(place.cost) * rate);
+                            costText = `${Number(place.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`;
+                        } else {
+                            const curSym = place.currency === 'USD' ? '$' : place.currency === 'EUR' ? '€' : '¥';
+                            costText = `${curSym}${Number(place.cost).toLocaleString()}`;
+                        }
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = `place-item bg-white border border-gray-200 rounded shadow-sm group ${place.visited ? 'opacity-50' : ''}`;
+                    item.setAttribute('data-id', place.id);
+                    
+                    const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
+
+                    item.innerHTML = `
+                        <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative">
+                            <div class="text-gray-300 hover:text-gray-500 cursor-grab px-1 mt-1 touch-manipulation">⋮⋮</div>
+                            
+                            <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold flex-shrink-0 mx-1 md:mx-2 mt-0.5 transition-colors shadow-inner" style="background-color: ${place.visited ? '#9ca3af' : dayColor}">
+                                ${place.visited ? '✓' : index + 1}
+                            </div>
+
+                            <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
+                                <div class="text-xs md:text-sm font-bold text-gray-800 transition ${place.visited ? 'line-through text-gray-400' : 'hover:text-blue-600'}">
+                                    ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded mr-1" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
+                                    ${place.name} <span class="text-[9px] md:text-[10px] text-gray-400 font-normal ml-1">(상세/수정)</span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                    <span class="cat-badge ${catData.color}">${displayLabel}</span>
+                                    ${place.cost ? `<span class="cat-badge bg-gray-100 text-gray-600">💰 ${costText}</span>` : ''}
+                                    ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
+                                </div>
+                                ${place.memo ? `<div class="text-[10px] md:text-[11px] text-gray-500 mt-1.5 truncate pr-2">📝 ${place.memo}</div>` : ''}
+                            </div>
+                            
+                            <div class="flex gap-1 flex-shrink-0 ml-1 mt-0.5">
+                                <button onclick="map.setView([${place.lat}, ${place.lng}], 16, { animate: true, duration: 0.4 })" class="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100">지도</button>
+                                <button onclick="deletePlace(${place.id})" class="text-[10px] text-red-500 bg-red-50 px-2 py-1 rounded hover:bg-red-100">삭제</button>
+                            </div>
+                        </div>
+
+                        <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
+                            <div class="mb-2">
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">장소명 (수정 가능)</label>
+                                <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[11px]">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">카테고리</label>
+                                    <div class="flex gap-1 mt-0.5">
+                                        <select onchange="updatePlaceField(${place.id}, 'category', this.value)" class="flex-1 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">
+                                            <option value="sightseeing" ${!place.category || place.category==='sightseeing'?'selected':''}>📸 명소</option>
+                                            <option value="food" ${place.category==='food'?'selected':''}>🍽️ 식당/카페</option>
+                                            <option value="hotel" ${place.category==='hotel'?'selected':''}>🛏️ 숙소</option>
+                                            <option value="transport" ${place.category==='transport'?'selected':''}>🚌 교통</option>
+                                            <option value="custom" ${place.category==='custom'?'selected':''}>📌 직접입력</option>
+                                        </select>
+                                        ${place.category === 'custom' ? `<input type="text" placeholder="입력" value="${place.customLabel||''}" onchange="updatePlaceField(${place.id}, 'customLabel', this.value)" class="w-12 md:w-16 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none">` : ''}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">예상 비용</label>
+                                    <div class="flex gap-1 mt-0.5">
+                                        <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
+                                            <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option>
+                                            <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
+                                            <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
+                                            <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
+                                            <option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율)</option>
+                                        </select>
+                                        ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">` : ''}
+                                        <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[10px]">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${index > 0 ? `
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">출발 시간 (이전 장소)</label>
+                                    <input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
+                                </div>
+                                <div>
+                                    <label class="text-[9px] md:text-[10px] font-bold text-gray-500">도착 시간 (이곳에)</label>
+                                    <input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}>
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            <div class="mb-2">
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">연동할 예약/바우처 (시간 자동 반영)</label>
+                                <select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-gray-200 rounded bg-white outline-none">
+                                    <option value="">선택 안 함</option>
+                                    ${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] md:text-[10px] font-bold text-gray-500">메모</label>
+                                <textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-gray-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea>
+                            </div>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+
+                    if (index < dayPlaces.length - 1) {
+                        const nextPlace = dayPlaces[index + 1];
+                        const routeInfo = document.createElement('div');
+                        routeInfo.className = "flex items-center justify-center gap-1 md:gap-1.5 py-1 -my-0.5 relative z-0";
+                        routeInfo.innerHTML = `
+                            <span class="text-gray-400 text-[10px]">⬇️</span>
+                            <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-gray-100 border border-gray-200 rounded px-1 py-0.5 text-[9px] md:text-[11px] font-bold text-gray-600 outline-none">
+                                <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
+                                <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
+                                <option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
+                            </select>
+                            <span id="route-result-${dIdx}-${index}" class="text-[9px] md:text-[11px] text-gray-500 font-medium">(계산 중...)</span>
+                        `;
+                        listEl.appendChild(routeInfo);
+                    }
+                });
+            };
+
+            if (appData.currentDayIndex === 'all') {
+                trip.days.forEach((dayPlaces, dIdx) => renderDayPlaces(dayPlaces, dIdx, true));
+            } else {
+                renderDayPlaces(trip.days[appData.currentDayIndex] || [], appData.currentDayIndex, false);
+            }
 
             if(sortableInstance) sortableInstance.destroy();
-            if (appData.currentDayIndex !== 'all') { 
-                sortableInstance = new Sortable(listEl, {
-                    animation: 150, handle: '.cursor-grab', ghostClass: 'sortable-ghost',
-                    onEnd: function () {
+            sortableInstance = new Sortable(listEl, {
+                animation: 150, 
+                handle: '.cursor-grab', 
+                ghostClass: 'sortable-ghost',
+                draggable: '.place-item', 
+                delay: 150, 
+                delayOnTouchOnly: true,
+                onEnd: function () {
+                    const trip = getCurrentTrip();
+                    if (appData.currentDayIndex === 'all') {
+                        const newDays = [];
+                        let currentDayArray = null;
+
+                        listEl.childNodes.forEach(el => {
+                            if (el.classList && el.classList.contains('day-divider')) {
+                                currentDayArray = [];
+                                newDays.push(currentDayArray);
+                            } else if (el.classList && el.classList.contains('place-item')) {
+                                if (!currentDayArray) {
+                                    currentDayArray = [];
+                                    newDays.push(currentDayArray);
+                                }
+                                const id = parseInt(el.getAttribute('data-id'));
+                                let foundPlace = null;
+                                for (const d of trip.days) {
+                                    const p = d.find(x => x.id === id);
+                                    if (p) { foundPlace = p; break; }
+                                }
+                                if (foundPlace) currentDayArray.push(foundPlace);
+                            }
+                        });
+
+                        while(newDays.length < trip.days.length) newDays.push([]);
+                        while(newDays.length > trip.days.length) {
+                            const extra = newDays.shift();
+                            newDays[0] = [...extra, ...newDays[0]];
+                        }
+                        trip.days = newDays;
+                    } else {
                         const newPlaces = [];
                         listEl.querySelectorAll('.place-item').forEach(el => {
                             const id = parseInt(el.getAttribute('data-id'));
                             newPlaces.push(trip.days[appData.currentDayIndex].find(p => p.id === id));
                         });
-                        trip.days[appData.currentDayIndex] = newPlaces; saveData(); renderUI(true);
+                        trip.days[appData.currentDayIndex] = newPlaces; 
                     }
-                });
-            }
+                    saveData(); 
+                    renderUI(true);
+                }
+            });
 
             renderMapRoutes(preserveView);
         }
@@ -942,16 +964,16 @@
                                     if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
                                         const distKm = route.distance / 1000;
                                         const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); 
-                                        updateRouteResult(dayIndex, i-1, p2, avgMin, distKm, transport, false);
+                                        updateRouteResult(dayIndex, i, p2, avgMin, distKm, transport, false);
                                     }
                                 } else {
-                                    drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                                    drawFallback(p1, p2, segmentColor, dayIndex, i, transport);
                                 }
                             } catch (e) {
-                                if (latestRenderId === currentRenderId) drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                                if (latestRenderId === currentRenderId) drawFallback(p1, p2, segmentColor, dayIndex, i, transport);
                             }
                         } else {
-                            drawFallback(p1, p2, segmentColor, dayIndex, i-1, transport);
+                            drawFallback(p1, p2, segmentColor, dayIndex, i, transport);
                         }
                     })();
                 }
@@ -971,7 +993,7 @@
                     
                     updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, true);
                 } catch (e) {
-                    const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
+                    const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex-1}`);
                     if (resultEl) resultEl.innerHTML = `<span class="text-red-500 font-bold ml-1">계산 오류</span>`;
                 }
             }
