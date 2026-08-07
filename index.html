@@ -163,6 +163,9 @@
         let sortableInstance = null;
         let latestRenderId = 0;
         let mapClickMode = false;
+        
+        // 열려있는 상세창 ID를 기억하는 Set 추가
+        let expandedPlaceIds = new Set();
 
         window.addEventListener('resize', () => {
             if (map) map.invalidateSize();
@@ -225,15 +228,22 @@
                     } else if (data.__type === 'full') {
                         appData.trips = data.trips; appData.currentTripId = appData.trips[0].id;
                     }
+                    expandedPlaceIds.clear();
                     saveData(); renderUI(false); closeModal(); alert("성공적으로 불러왔습니다!");
                 } catch(err) { alert("파일 형식이 올바르지 않습니다."); }
             };
             reader.readAsText(file);
         }
 
-        function changeTrip() { appData.currentTripId = parseInt(document.getElementById('tripSelect').value); appData.currentDayIndex = 0; saveData(); renderUI(false); }
-        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; saveData(); renderUI(false); } }
-        function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; saveData(); renderUI(false); } }
+        function changeTrip() { 
+            appData.currentTripId = parseInt(document.getElementById('tripSelect').value); 
+            appData.currentDayIndex = 0; 
+            expandedPlaceIds.clear();
+            saveData(); 
+            renderUI(false); 
+        }
+        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; expandedPlaceIds.clear(); saveData(); renderUI(false); } }
+        function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; expandedPlaceIds.clear(); saveData(); renderUI(false); } }
         
         function addDay() { getCurrentTrip().days.push([]); appData.currentDayIndex = getCurrentTrip().days.length - 1; saveData(); renderUI(true); }
         function selectDay(idx) { appData.currentDayIndex = idx; saveData(); renderUI(false); }
@@ -251,6 +261,7 @@
             if(!confirm('이 장소를 삭제하시겠습니까?')) return;
             const trip = getCurrentTrip();
             trip.days = trip.days.map(day => day.filter(p => p.id !== placeId));
+            expandedPlaceIds.delete(placeId);
             saveData(); renderUI(true);
         }
 
@@ -259,7 +270,6 @@
             if(p) { 
                 p[field] = value; 
                 saveData(); 
-                // 비용이나 환율이 수정되었을 때도 UI를 즉각 업데이트 하도록 추가
                 if(['category','transport','linkedResId', 'customLabel', 'currency', 'name', 'customRate', 'cost'].includes(field)) renderUI(true); 
             }
         }
@@ -641,7 +651,15 @@
 
         function toggleDetails(placeId) { 
             const el = document.getElementById(`details-${placeId}`);
-            if(el) el.classList.toggle('hidden');
+            if(el) {
+                el.classList.toggle('hidden');
+                // 열림/닫힘 상태를 Set에 저장하여 렌더링 시 유지되도록 함
+                if (el.classList.contains('hidden')) {
+                    expandedPlaceIds.delete(placeId);
+                } else {
+                    expandedPlaceIds.add(placeId);
+                }
+            }
         }
 
         function renderUI(preserveView = true) {
@@ -692,7 +710,6 @@
                 const displayLabel = place.category === 'custom' && place.customLabel ? place.customLabel : catData.label;
                 const hasRes = !!place.linkedResId;
 
-                // --- 금액 및 환율 계산 표시 로직 ---
                 let costText = '';
                 if (place.cost) {
                     if (!place.currency || place.currency === 'KRW') {
@@ -711,6 +728,9 @@
                 item.className = `place-item bg-white border border-gray-200 rounded shadow-sm group ${place.visited ? 'opacity-50' : ''}`;
                 item.setAttribute('data-id', place.id);
                 
+                // 기억해둔 창 열림/닫힘 상태 적용
+                const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
+
                 item.innerHTML = `
                     <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative">
                         ${appData.currentDayIndex !== 'all' ? `<div class="text-gray-300 hover:text-gray-500 cursor-grab px-1 mt-1">⋮⋮</div>` : '<div class="px-1"></div>'}
@@ -738,7 +758,7 @@
                         </div>
                     </div>
 
-                    <div id="details-${place.id}" class="px-3 pb-3 pt-2 hidden bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
+                    <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-gray-50 relative z-10 border-t border-gray-100 text-[11px] md:text-xs">
                         <div class="mb-2">
                             <label class="text-[9px] md:text-[10px] font-bold text-gray-500">장소명 (수정 가능)</label>
                             <input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-gray-200 rounded bg-white outline-none text-[11px]">
