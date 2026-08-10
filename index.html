@@ -213,10 +213,10 @@
         let mapClickMode = false;
 
         let expandedPlaceIds = new Set();
+        window.highlightedPlaceId = null; // 특정 장소 하이라이트 상태
 
         const GOOGLE_MAPS_API_KEY = 'AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME';
 
-        // 두 좌표 사이의 직선 거리(km) - Haversine 공식 (geometry 라이브러리 없이 계산)
         function haversineKm(lat1, lng1, lat2, lng2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -225,7 +225,6 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
-        // 구글 인코딩 폴리라인 표준 디코드 알고리즘 (Routes API가 좌표를 이 형식으로 압축해서 돌려줌)
         function decodePolyline(encoded) {
             let points = [];
             let index = 0, len = encoded.length;
@@ -244,7 +243,6 @@
             return points;
         }
 
-        // Routes API(신형) 호출 - REST 엔드포인트라 별도 JS 라이브러리 없이 fetch로 직접 호출
         async function fetchRoutesApi(origin, destination, travelMode) {
             const body = {
                 origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
@@ -280,7 +278,6 @@
         const routesApiCache = new Map();
         let routesQueueTail = Promise.resolve();
 
-        // Routes API도 짧은 시간에 요청이 몰리면 실패할 수 있어 순차 처리 + 캐시로 완화
         function queueRoutesApiRequest(origin, destination, travelMode, cacheKey) {
             if (routesApiCache.has(cacheKey)) return Promise.resolve(routesApiCache.get(cacheKey));
             const run = () => fetchRoutesApi(origin, destination, travelMode).then(route => {
@@ -292,7 +289,6 @@
             return resultPromise;
         }
 
-        // Google Maps JS API가 로드되면 자동으로 호출되는 콜백 (스크립트 태그의 callback=initMap)
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 center: { lat: 37.5665, lng: 126.9780 },
@@ -402,14 +398,15 @@
             appData.currentTripId = parseInt(document.getElementById('tripSelect').value); 
             appData.currentDayIndex = 0; 
             expandedPlaceIds.clear();
+            window.highlightedPlaceId = null;
             saveData(); 
             renderUI(false); 
         }
-        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; expandedPlaceIds.clear(); saveData(); renderUI(false); } }
-        function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; expandedPlaceIds.clear(); saveData(); renderUI(false); } }
+        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
+        function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
         
-        function addDay() { getCurrentTrip().days.push([]); appData.currentDayIndex = getCurrentTrip().days.length - 1; saveData(); renderUI(true); }
-        function selectDay(idx) { appData.currentDayIndex = idx; saveData(); renderUI(false); }
+        function addDay() { getCurrentTrip().days.push([]); appData.currentDayIndex = getCurrentTrip().days.length - 1; window.highlightedPlaceId = null; saveData(); renderUI(true); }
+        function selectDay(idx) { appData.currentDayIndex = idx; window.highlightedPlaceId = null; saveData(); renderUI(false); }
         
         function getPlaceAndDay(placeId) {
             const trip = getCurrentTrip();
@@ -425,6 +422,7 @@
             const trip = getCurrentTrip();
             trip.days = trip.days.map(day => day.filter(p => p.id !== placeId));
             expandedPlaceIds.delete(placeId);
+            if(window.highlightedPlaceId === placeId) window.highlightedPlaceId = null;
             saveData(); renderUI(true);
         }
 
@@ -465,7 +463,7 @@
 
             const request = {
                 query: query,
-                location: map.getCenter(), // 현재 보고 있는 지도 중심 근처를 우선순위로 검색(구글이 알아서 가중치를 줌)
+                location: map.getCenter(),
                 radius: 50000,
                 language: 'ko'
             };
@@ -561,7 +559,19 @@
             return `[${result.join(' ')}]`;
         }
 
+        // 장소의 '지도' 버튼을 누르면 해당 장소 중심으로 경로 하이라이트
+        function focusPlaceOnMap(placeId) {
+            window.highlightedPlaceId = placeId;
+            const { p } = getPlaceAndDay(placeId);
+            if (p) {
+                map.panTo({ lat: p.lat, lng: p.lng });
+                map.setZoom(16);
+            }
+            renderMapRoutes(true);
+        }
+
         function resetMapView() {
+            window.highlightedPlaceId = null; // 초기화 버튼 누르면 하이라이트 해제
             const trip = getCurrentTrip();
             let allLatLngs = [];
             trip.days.forEach(day => day.forEach(p => allLatLngs.push({ lat: p.lat, lng: p.lng })));
@@ -573,6 +583,7 @@
                 map.panTo(allLatLngs[0]);
                 map.setZoom(14);
             }
+            renderMapRoutes(true);
         }
 
         function getDuration(d, a) {
@@ -867,12 +878,50 @@
             renderReservations();
             renderChecklist();
 
+            // 1. Day 순서 드래그 앤 드롭 구현 (All 칩은 고정)
             const chipContainer = document.getElementById('dayChipsContainer');
             chipContainer.innerHTML = `
                 <button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${appData.currentDayIndex === 'all' ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">All</button>
-            ` + trip.days.map((d, i) => `
-                <button onclick="selectDay(${i})" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>
-            `).join('');
+                <div id="sortableDaysContainer" class="flex gap-2">
+                    ${trip.days.map((d, i) => `
+                        <button data-index="${i}" onclick="selectDay(${i})" class="day-chip cursor-grab px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>
+                    `).join('')}
+                </div>
+            `;
+
+            // Day 컨테이너에 대해 Sortable 초기화
+            if (window.daySortableInstance) window.daySortableInstance.destroy();
+            const sortableDaysContainer = document.getElementById('sortableDaysContainer');
+            if (sortableDaysContainer) {
+                window.daySortableInstance = new Sortable(sortableDaysContainer, {
+                    animation: 150,
+                    delay: 150,
+                    delayOnTouchOnly: true,
+                    ghostClass: 'sortable-ghost',
+                    onEnd: function (evt) {
+                        const oldIndex = evt.oldIndex;
+                        const newIndex = evt.newIndex;
+                        if (oldIndex === newIndex) return;
+
+                        const trip = getCurrentTrip();
+                        const movedDay = trip.days.splice(oldIndex, 1)[0];
+                        trip.days.splice(newIndex, 0, movedDay);
+
+                        // 활성화된 Day 인덱스도 함께 업데이트
+                        if (appData.currentDayIndex !== 'all') {
+                            if (appData.currentDayIndex === oldIndex) {
+                                appData.currentDayIndex = newIndex;
+                            } else if (appData.currentDayIndex > oldIndex && appData.currentDayIndex <= newIndex) {
+                                appData.currentDayIndex--;
+                            } else if (appData.currentDayIndex < oldIndex && appData.currentDayIndex >= newIndex) {
+                                appData.currentDayIndex++;
+                            }
+                        }
+                        saveData();
+                        renderUI(true);
+                    }
+                });
+            }
 
             const listEl = document.getElementById('dayList'); listEl.innerHTML = '';
 
@@ -937,7 +986,7 @@
                             </div>
                             
                             <div class="flex gap-1 flex-shrink-0 ml-1 mt-0.5">
-                                <button onclick="map.panTo({lat: ${place.lat}, lng: ${place.lng}}); map.setZoom(16);" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-2 py-1 rounded-md hover:bg-coral-100 transition">지도</button>
+                                <button onclick="focusPlaceOnMap(${place.id})" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-2 py-1 rounded-md hover:bg-coral-100 transition">지도</button>
                                 <button onclick="deletePlace(${place.id})" class="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
                             </div>
                         </div>
@@ -1160,6 +1209,17 @@
                     const transport = p2.transport || 'car';
                     const tMeta = transportMeta[transport] || transportMeta['car'];
                     
+                    // 2. 하이라이트 여부 결정 로직
+                    let isActiveSegment = true;
+                    if (window.highlightedPlaceId) {
+                        isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
+                    }
+                    
+                    const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db';
+                    const strokeOpacity = isActiveSegment ? 1.0 : 0.3;
+                    const haloOpacity = isActiveSegment ? 0.9 : 0.2;
+                    const zIdx = isActiveSegment ? 4 : 2;
+
                     if (tMeta.profile) {
                         const origin = { lat: p1.lat, lng: p1.lng };
                         const destination = { lat: p2.lat, lng: p2.lng };
@@ -1171,8 +1231,8 @@
                             if (route && route.polyline && route.polyline.encodedPolyline) {
                                 const path = decodePolyline(route.polyline.encodedPolyline);
 
-                                const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: 0.9, map, zIndex: 1 });
-                                const line = new google.maps.Polyline({ path, strokeColor: segmentColor, strokeWeight: 4, strokeOpacity: 1.0, map, zIndex: 2 });
+                                const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: haloOpacity, map, zIndex: zIdx - 1 });
+                                const line = new google.maps.Polyline({ path, strokeColor: activeSegmentColor, strokeWeight: 4, strokeOpacity: strokeOpacity, map, zIndex: zIdx });
                                 mapLayers.push(halo, line);
 
                                 if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
@@ -1181,25 +1241,28 @@
                                     updateRouteResult(dayIndex, i - 1, p2, avgMin, distKm, transport, false);
                                 }
                             } else {
-                                drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport);
+                                drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport, isActiveSegment);
                             }
                         });
                     } else {
-                        drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport);
+                        drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport, isActiveSegment);
                     }
                 }
             }
         }
 
-        function drawFallback(p1, p2, color, dayIndex, pIndex, transport) {
-            // 대중교통/항공 등 실제 도로 경로가 없는 구간은 점선 직선으로 표시
+        function drawFallback(p1, p2, color, dayIndex, pIndex, transport, isActiveSegment = true) {
+            const activeColor = isActiveSegment ? color : '#d1d5db';
+            const opacity = isActiveSegment ? 1 : 0.3;
+            const zIdx = isActiveSegment ? 4 : 2;
+
             const polyline = new google.maps.Polyline({
                 path: [{ lat: p1.lat, lng: p1.lng }, { lat: p2.lat, lng: p2.lng }],
-                strokeColor: color,
+                strokeColor: activeColor,
                 strokeOpacity: 0,
-                icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '12px' }],
+                icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: opacity, strokeColor: activeColor, scale: 3 }, offset: '0', repeat: '12px' }],
                 map: map,
-                zIndex: 2
+                zIndex: zIdx
             });
             mapLayers.push(polyline);
             
@@ -1273,7 +1336,6 @@
         })();
     </script>
 
-    <!-- initMap 등 앱 코드가 먼저 정의된 뒤에 로드해야 콜백 타이밍이 항상 안전합니다 -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME&libraries=places&language=ko&region=KR&loading=async&callback=initMap" async defer></script>
 </body>
 </html>
