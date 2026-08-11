@@ -592,6 +592,14 @@
                 return;
             }
 
+            // 모바일 브라우저는 비동기 콜백(geolocation 응답) 안에서 window.open()을 호출하면
+            // '사용자 클릭과 무관한 팝업'으로 판단해 조용히 차단해버립니다.
+            // 그래서 클릭한 그 순간(동기 처리 구간)에 빈 탭을 먼저 열어두고, 위치를 받은 뒤 그 탭의 주소만 바꿔줍니다.
+            const newTab = window.open('', '_blank');
+            if (newTab) {
+                newTab.document.write('현재 위치를 확인하고 있습니다...');
+            }
+
             const btn = document.getElementById(`directions-btn-${placeId}`);
             const originalHtml = btn ? btn.innerHTML : null;
             if (btn) btn.innerHTML = '⏳';
@@ -605,13 +613,20 @@
                     const travelModeMap = { car: 'driving', walk: 'walking', transit: 'transit', flight: 'transit' };
                     const mode = travelModeMap[p.transport] || 'driving';
                     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`;
-                    window.open(url, '_blank');
+
+                    if (newTab && !newTab.closed) {
+                        newTab.location.href = url;
+                    } else {
+                        // 팝업 자체가 아예 차단됐다면 현재 탭에서 바로 이동 (그래도 안내는 도착함)
+                        window.location.href = url;
+                    }
                 },
                 (err) => {
                     if (btn) btn.innerHTML = originalHtml;
+                    if (newTab && !newTab.closed) newTab.close();
                     alert("현재 위치를 가져올 수 없습니다.\n브라우저의 위치 권한을 허용해주세요.");
                 },
-                { enableHighAccuracy: true }
+                { enableHighAccuracy: true, timeout: 10000 }
             );
         }
 
@@ -1047,11 +1062,11 @@
                                 </div>
                             </div>
                             
-                            <div class="flex flex-col gap-1 flex-shrink-0 ml-1 mt-0.5">
-                                <button onclick="focusPlaceOnMap(${place.id})" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-2 py-1 rounded-md hover:bg-coral-100 transition">지도</button>
-                                <button onclick="duplicatePlace(${place.id})" class="text-[10px] font-semibold text-navy-600 bg-sand-100 px-2 py-1 rounded-md hover:bg-sand-200 transition">복사</button>
-                                <button onclick="deletePlace(${place.id})" class="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
-                                <button id="directions-btn-${place.id}" onclick="getDirectionsToPlace(${place.id})" class="text-[10px] font-semibold text-white bg-navy-800 px-2 py-1 rounded-md hover:bg-navy-700 transition">🧭 길찾기</button>
+                            <div class="grid grid-cols-2 gap-1 flex-shrink-0 ml-1 mt-0.5 w-[84px]">
+                                <button onclick="focusPlaceOnMap(${place.id})" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-1.5 py-1 rounded-md hover:bg-coral-100 transition">지도</button>
+                                <button id="directions-btn-${place.id}" onclick="getDirectionsToPlace(${place.id})" class="text-[10px] font-semibold text-white bg-navy-800 px-1.5 py-1 rounded-md hover:bg-navy-700 transition">🧭 길찾기</button>
+                                <button onclick="duplicatePlace(${place.id})" class="text-[10px] font-semibold text-navy-600 bg-sand-100 px-1.5 py-1 rounded-md hover:bg-sand-200 transition">복사</button>
+                                <button onclick="deletePlace(${place.id})" class="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
                             </div>
                         </div>
 
