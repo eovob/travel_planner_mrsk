@@ -495,6 +495,7 @@
                     const subName = item.formatted_address || '';
                     const lat = item.geometry.location.lat();
                     const lng = item.geometry.location.lng();
+                    const googlePlaceId = item.place_id || null;
 
                     const div = document.createElement('div');
                     div.className = "p-3 border-b hover:bg-coral-50 cursor-pointer flex flex-col";
@@ -505,7 +506,8 @@
                     div.onclick = () => {
                         let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
                         const newId = Date.now();
-                        getCurrentTrip().days[targetDayIdx].push({ id: newId, name: mainName, lat, lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW' });
+                        // googlePlaceId를 저장해두면, 이후 이름을 바꾸더라도 구글 지도에서 '검색 당시의 실제 장소'로 바로 연결할 수 있습니다.
+                        getCurrentTrip().days[targetDayIdx].push({ id: newId, name: mainName, lat, lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, currency: 'KRW', googlePlaceId });
 
                         const searchInput = document.getElementById('searchInput');
                         searchInput.value = '';
@@ -584,10 +586,14 @@
         }
 
         function buildDirectionsUrl(p) {
-            const travelModeMap = { car: 'driving', walk: 'walking', transit: 'transit', flight: 'transit' };
-            const mode = travelModeMap[p.transport] || 'driving';
-            // origin을 비워두면 구글 지도가 앱/웹 안에서 자동으로 '현재 위치'를 출발지로 잡아줍니다.
-            return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=${mode}`;
+            // 검색으로 추가한 장소면 googlePlaceId가 있어서, 좌표 핀이 아니라 '그 실제 장소'로 바로 연결됩니다
+            // (이름을 나중에 바꿔도 상관없이 최초 검색된 장소 그대로 연결됨).
+            // travelmode를 지정하지 않으면 구글 지도가 자동차/대중교통/도보/자전거/항공편 검색을 모두 보여주고
+            // 사용자가 그 안에서 자유롭게 이동수단을 선택할 수 있습니다.
+            if (p.googlePlaceId) {
+                return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.name)}&destination_place_id=${p.googlePlaceId}`;
+            }
+            return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
         }
 
         function resetMapView() {
