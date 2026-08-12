@@ -662,13 +662,14 @@
             const trip = getCurrentTrip();
             const editing = editId ? trip.reservations.find(r => r.id === editId) : null;
             const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition";
+            const initialType = editing ? editing.type : 'hotel'; // 새 예약의 기본 선택값은 '숙소'
             
             openModal(`
                 <form id="resForm" class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
                     <div>
                         <label class="text-xs font-bold text-ink-600">종류</label>
-                        <select name="type" onchange="document.getElementById('transportTimes').classList.toggle('hidden', this.value !== 'transport')" class="${inputCls}">
+                        <select name="type" onchange="toggleResFields(this.value)" class="${inputCls}">
                             <option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option>
                             <option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option>
                             <option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option>
@@ -679,7 +680,7 @@
                         <input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="${inputCls}" />
                     </div>
                     
-                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${(!editing || editing.type==='hotel') ? 'hidden' : ''}">
+                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'transport' ? 'hidden' : ''}">
                         <div>
                             <label class="text-xs font-bold text-coral-600">출발 시간</label>
                             <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" />
@@ -690,8 +691,19 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
+                    <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}">
                         <div>
+                            <label class="text-xs font-bold text-coral-600">체크인 날짜</label>
+                            <input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${inputCls}" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-coral-600">체크아웃 날짜</label>
+                            <input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${inputCls}" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div id="genericDateWrap" class="${initialType === 'hotel' ? 'hidden' : ''}">
                             <label class="text-xs font-bold text-ink-600">일시/날짜</label>
                             <input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" />
                         </div>
@@ -725,13 +737,25 @@
                 const data = {
                     type: this.type.value,
                     title: this.title.value.trim(),
-                    date: this.date.value.trim(),
                     link: this.link.value.trim(),
                     note: this.note.value.trim(),
                     departTime: this.type.value === 'transport' ? this.departTime.value : '',
                     arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '',
                     voucher: editing ? editing.voucher : null
                 };
+
+                if (this.type.value === 'hotel') {
+                    const checkIn = this.checkIn.value;
+                    const checkOut = this.checkOut.value;
+                    data.checkIn = checkIn;
+                    data.checkOut = checkOut;
+                    // 체크인/체크아웃을 하나의 표시용 문자열로도 저장해서 목록/카드 등 기존 화면에서 그대로 보이게 함
+                    data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || '');
+                } else {
+                    data.date = this.date.value.trim();
+                    data.checkIn = '';
+                    data.checkOut = '';
+                }
 
                 const saveAndClose = () => {
                     if (editing) Object.assign(editing, data);
@@ -749,6 +773,12 @@
                     reader.readAsDataURL(file);
                 } else { saveAndClose(); }
             });
+        }
+
+        function toggleResFields(type) {
+            document.getElementById('transportTimes').classList.toggle('hidden', type !== 'transport');
+            document.getElementById('hotelDates').classList.toggle('hidden', type !== 'hotel');
+            document.getElementById('genericDateWrap').classList.toggle('hidden', type === 'hotel');
         }
 
         function deleteReservation(id) {
@@ -824,7 +854,7 @@
                             <span class="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-lg shrink-0">${icons[r.type]}</span>
                             <div class="flex-1 min-w-0 pt-0.5">
                                 <h3 class="font-bold text-sm text-navy-900 truncate">${r.title}</h3>
-                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.date} ${r.note ? ` · ${r.note}` : ''}</p>
+                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date} ${r.note ? ` · ${r.note}` : ''}</p>
                                 ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
                             </div>
                         </div>
