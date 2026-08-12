@@ -82,7 +82,6 @@
             </button>
         </div>
 
-        <!-- 4단 탭 -->
         <div class="flex gap-1 p-1.5 bg-sand-100 border-b border-sand-200 overflow-x-auto scrollbar-hide">
             <button id="tabItineraryBtn" onclick="switchTab('itinerary')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold bg-white text-navy-800 shadow-card whitespace-nowrap">🗺️ 일정</button>
             <button id="tabReservationBtn" onclick="switchTab('reservation')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap">🏨 예약</button>
@@ -90,7 +89,6 @@
             <button id="tabChecklistBtn" onclick="switchTab('checklist')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap">✅ 준비물</button>
         </div>
 
-        <!-- [1] 여행 일정 탭 -->
         <div id="itineraryTab" class="flex-1 flex flex-col overflow-hidden">
             <div class="p-3 md:p-4 border-b border-sand-200 bg-white">
                 <div class="flex gap-2 relative">
@@ -113,7 +111,6 @@
             </div>
         </div>
 
-        <!-- [2] 예약/바우처 탭 -->
         <div id="reservationTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-sand-50 hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="font-extrabold text-navy-900 text-base md:text-lg">📝 예약 및 바우처</h2>
@@ -122,12 +119,10 @@
             <div id="reservationList" class="space-y-3"></div>
         </div>
 
-        <!-- [3] 통계(대시보드) 탭 -->
         <div id="dashboardTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-sand-50 hidden space-y-4">
             <!-- JS에서 동적 생성됨 -->
         </div>
 
-        <!-- [4] 준비물 탭 -->
         <div id="checklistTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-sand-50 hidden">
             <h2 class="font-extrabold text-navy-900 mb-4 text-base md:text-lg">✅ 준비물 챙기기</h2>
             <div class="flex gap-2 mb-4">
@@ -139,21 +134,15 @@
     </aside>
 
     <main class="w-full h-[40%] md:h-full md:flex-1 relative z-0">
-        <!-- 지도 클릭 모드 토글 버튼 -->
         <div class="absolute top-2 left-2 md:top-4 md:left-4 z-[400] flex flex-col gap-2">
             <button id="mapModeBtn" onclick="toggleMapMode()" class="map-fab bg-white shadow-floating rounded-full px-3 py-1.5 md:px-4 md:py-2.5 text-[11px] md:text-sm font-bold text-navy-800 border border-sand-200 hover:bg-sand-50 transition">
                 📍 <span>지도 클릭으로 장소 추가 (OFF)</span>
             </button>
         </div>
-
         <div id="map" class="w-full h-full relative z-0"></div>
-
         <div class="absolute top-[90px] right-[10px] z-[400]">
-            <button onclick="resetMapView()" class="map-fab bg-white w-[34px] h-[34px] md:w-[38px] md:h-[38px] rounded-xl shadow-floating flex items-center justify-center hover:bg-sand-50 text-sm md:text-base border border-sand-200" title="전체 경로 보기">
-                🗺️
-            </button>
+            <button onclick="resetMapView()" class="map-fab bg-white w-[34px] h-[34px] md:w-[38px] md:h-[38px] rounded-xl shadow-floating flex items-center justify-center hover:bg-sand-50 text-sm md:text-base border border-sand-200" title="전체 경로 보기">🗺️</button>
         </div>
-
         <button onclick="findMyLocation()" class="map-fab absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[400] bg-navy-800 w-11 h-11 md:w-12 md:h-12 rounded-full shadow-floating border border-navy-900/20 flex items-center justify-center hover:bg-navy-700 text-lg md:text-xl text-white" title="내 위치 찾기">🎯</button>
     </main>
 
@@ -163,8 +152,8 @@
         const transportMeta = {
             'car': { label: '🚗 차량', profile: 'DRIVE', speed: 65 },
             'walk': { label: '🚶 도보', profile: 'WALK', speed: 4 },
-            'transit': { label: '✈️/🚌 항공/대중교통', profile: 'TRANSIT', speed: 30 },
-            'flight': { label: '✈️/🚌 항공/대중교통', profile: null, speed: 800 } 
+            'transit': { label: '✈️/🚌 대중교통', profile: 'TRANSIT', speed: 30 },
+            'flight': { label: '✈️/🚌 항공', profile: null, speed: 800 } 
         };
 
         const categories = {
@@ -203,91 +192,46 @@
         };
 
         let appData = JSON.parse(localStorage.getItem('travelAppMergedFinal')) || defaultSampleData;
-
-        let map, placesService;
-        let mapLayers = [];
-        let sortableInstance = null;
-        let latestRenderId = 0;
-        let mapClickMode = false;
-
-        let expandedPlaceIds = new Set();
-        window.highlightedPlaceId = null; 
+        let map, placesService; let mapLayers = []; let sortableInstance = null; let latestRenderId = 0; let mapClickMode = false;
+        let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
 
         const GOOGLE_MAPS_API_KEY = 'AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME';
 
         function haversineKm(lat1, lng1, lat2, lng2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLng = (lng2 - lng1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
         function decodePolyline(encoded) {
-            let points = [];
-            let index = 0, len = encoded.length;
-            let lat = 0, lng = 0;
+            let points = []; let index = 0, len = encoded.length; let lat = 0, lng = 0;
             while (index < len) {
-                let b, shift = 0, result = 0;
-                do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-                lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-                shift = 0; result = 0;
-                do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-                lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+                let b, shift = 0, result = 0; do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20); lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+                shift = 0; result = 0; do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20); lng += (result & 1) ? ~(result >> 1) : (result >> 1);
                 points.push({ lat: lat / 1e5, lng: lng / 1e5 });
             }
             return points;
         }
 
         async function fetchRoutesApi(origin, destination, travelMode) {
-            const body = {
-                origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
-                destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
-                travelMode: travelMode,
-                languageCode: 'ko',
-                units: 'METRIC'
-            };
+            const body = { origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } }, destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } }, travelMode: travelMode, languageCode: 'ko', units: 'METRIC' };
             if (travelMode === 'DRIVE') body.routingPreference = 'TRAFFIC_AWARE';
-
             try {
-                const res = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-                        'X-Goog-FieldMask': 'routes.distanceMeters,routes.polyline.encodedPolyline'
-                    },
-                    body: JSON.stringify(body)
-                });
-                const json = await res.json();
-                if (!res.ok || !json.routes || !json.routes.length) return null;
+                const res = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY, 'X-Goog-FieldMask': 'routes.distanceMeters,routes.polyline.encodedPolyline' }, body: JSON.stringify(body) });
+                const json = await res.json(); if (!res.ok || !json.routes || !json.routes.length) return null;
                 return json.routes[0];
             } catch (e) { return null; }
         }
 
-        const routesApiCache = new Map();
-        let routesQueueTail = Promise.resolve();
+        const routesApiCache = new Map(); let routesQueueTail = Promise.resolve();
         function queueRoutesApiRequest(origin, destination, travelMode, cacheKey) {
             if (routesApiCache.has(cacheKey)) return Promise.resolve(routesApiCache.get(cacheKey));
-            const run = () => fetchRoutesApi(origin, destination, travelMode).then(route => {
-                routesApiCache.set(cacheKey, route); return route;
-            });
-            const resultPromise = routesQueueTail.then(run);
-            routesQueueTail = resultPromise.then(() => new Promise(r => setTimeout(r, 150)));
-            return resultPromise;
+            const run = () => fetchRoutesApi(origin, destination, travelMode).then(route => { routesApiCache.set(cacheKey, route); return route; });
+            const resultPromise = routesQueueTail.then(run); routesQueueTail = resultPromise.then(() => new Promise(r => setTimeout(r, 150))); return resultPromise;
         }
 
         function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: 37.5665, lng: 126.9780 },
-                zoom: 3,
-                maxZoom: 19,
-                disableDefaultUI: true,
-                zoomControl: true,
-                zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
-                gestureHandling: 'greedy',
-                clickableIcons: false
-            });
+            map = new google.maps.Map(document.getElementById('map'), { center: { lat: 37.5665, lng: 126.9780 }, zoom: 3, maxZoom: 19, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP }, gestureHandling: 'greedy', clickableIcons: false });
             placesService = new google.maps.places.PlacesService(map);
             map.addListener('click', (e) => {
                 if (!mapClickMode) return;
@@ -295,11 +239,8 @@
                 if (placeName) {
                     let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
                     const newId = Date.now();
-                    getCurrentTrip().days[targetDayIdx].push({
-                        id: newId, name: placeName, lat: e.latLng.lat(), lng: e.latLng.lng(), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, rating: 0, currency: 'KRW'
-                    });
-                    expandedPlaceIds.add(newId);
-                    saveData(); renderUI(true);
+                    getCurrentTrip().days[targetDayIdx].push({ id: newId, name: placeName, lat: e.latLng.lat(), lng: e.latLng.lng(), category: 'sightseeing', customLabel: '', transport: 'car', visited: false, rating: 0, currency: 'KRW' });
+                    expandedPlaceIds.add(newId); saveData(); renderUI(true);
                     setTimeout(() => { map.panTo(e.latLng); map.setZoom(16); scrollToBottom(); }, 100);
                 }
             });
@@ -307,41 +248,29 @@
         }
 
         window.addEventListener('resize', () => { if (map) google.maps.event.trigger(map, 'resize'); });
-
         function saveData() { localStorage.setItem('travelAppMergedFinal', JSON.stringify(appData)); }
         function getCurrentTrip() { return appData.trips.find(t => t.id === appData.currentTripId) || appData.trips[0]; }
         
         function switchTab(tabName) {
             ['itinerary', 'reservation', 'dashboard', 'checklist'].forEach(tab => {
                 const isMatch = tab === tabName;
-                const el = document.getElementById(`${tab}Tab`);
-                if(el) el.classList.toggle('hidden', !isMatch);
-                
+                const el = document.getElementById(`${tab}Tab`); if(el) el.classList.toggle('hidden', !isMatch);
                 const btn = document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}Btn`);
-                if(btn) {
-                    btn.className = isMatch ? "flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold bg-white text-navy-800 shadow-card whitespace-nowrap" 
-                                            : "flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap";
-                }
+                if(btn) btn.className = isMatch ? "flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold bg-white text-navy-800 shadow-card whitespace-nowrap" : "flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap";
             });
-
-            if (tabName === 'dashboard') {
-                renderDashboard();
-            }
+            if (tabName === 'dashboard') renderDashboard();
         }
 
         function openModal(html) {
             const root = document.getElementById('modalRoot');
-            root.innerHTML = `<div class="modal-card bg-white rounded-2xl shadow-2xl w-[90%] md:w-full max-w-md max-h-[90vh] overflow-y-auto">${html}</div>`;
-            root.classList.remove('hidden');
+            root.innerHTML = `<div class="modal-card bg-white rounded-2xl shadow-2xl w-[90%] md:w-full max-w-md max-h-[90vh] overflow-y-auto">${html}</div>`; root.classList.remove('hidden');
         }
         function closeModal() { document.getElementById('modalRoot').classList.add('hidden'); }
 
-        // [변경됨] 별점 평가 모달 및 처리 로직 추가
         function toggleVisited(placeId) {
             const { p } = getPlaceAndDay(placeId);
             if(p) { 
                 if (!p.visited) {
-                    // 방문 완료 시 별점 팝업 오픈
                     openModal(`
                         <div class="p-6 text-center">
                             <h2 class="font-extrabold text-navy-900 text-lg mb-2">방문 완료! 🎉</h2>
@@ -352,283 +281,115 @@
                             <button onclick="submitRating(${placeId}, 0)" class="text-xs font-bold text-ink-400 hover:text-ink-600 underline">평가 건너뛰기</button>
                         </div>
                     `);
-                } else {
-                    // 체크 해제 시
-                    p.visited = false;
-                    p.rating = 0;
-                    saveData(); 
-                    renderUI(true);
-                    if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard();
-                }
+                } else { p.visited = false; p.rating = 0; saveData(); renderUI(true); if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard(); }
             }
         }
-
         function submitRating(placeId, rating) {
             const { p } = getPlaceAndDay(placeId);
-            if (p) {
-                p.visited = true;
-                p.rating = rating;
-                saveData(); 
-                renderUI(true);
-                closeModal();
-                if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard();
-            }
+            if (p) { p.visited = true; p.rating = rating; saveData(); renderUI(true); closeModal(); if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard(); }
         }
 
-        function openShareModal() { /* ... 기존과 동일 ... */
-            const trip = getCurrentTrip();
+        function openShareModal() {
             openModal(`
-                <div class="p-6 space-y-4">
-                    <h2 class="font-extrabold text-navy-900 text-lg">내보내기 / 가져오기</h2>
-                    <div class="space-y-2">
-                        <button onclick="exportData(true)" class="w-full bg-coral-500 text-white py-2.5 rounded-lg font-bold hover:bg-coral-600 transition">📤 현재 여행만 내보내기</button>
-                        <button onclick="exportData(false)" class="w-full bg-sand-100 text-navy-800 py-2.5 rounded-lg font-bold hover:bg-sand-200 transition">📦 전체 백업 내보내기</button>
-                    </div>
-                    <div class="border-t border-sand-200 pt-4">
-                        <label class="text-sm font-bold text-ink-600 block mb-2">가져오기 (.json)</label>
-                        <input type="file" accept=".json" onchange="importData(event)" class="w-full text-xs">
-                    </div>
-                    <button onclick="closeModal()" class="w-full py-2.5 border border-sand-200 rounded-lg text-sm font-semibold text-ink-600 hover:bg-sand-50 transition mt-2">닫기</button>
-                </div>
+                <div class="p-6 space-y-4"><h2 class="font-extrabold text-navy-900 text-lg">내보내기 / 가져오기</h2><div class="space-y-2"><button onclick="exportData(true)" class="w-full bg-coral-500 text-white py-2.5 rounded-lg font-bold hover:bg-coral-600 transition">📤 현재 여행만 내보내기</button><button onclick="exportData(false)" class="w-full bg-sand-100 text-navy-800 py-2.5 rounded-lg font-bold hover:bg-sand-200 transition">📦 전체 백업 내보내기</button></div><div class="border-t border-sand-200 pt-4"><label class="text-sm font-bold text-ink-600 block mb-2">가져오기 (.json)</label><input type="file" accept=".json" onchange="importData(event)" class="w-full text-xs"></div><button onclick="closeModal()" class="w-full py-2.5 border border-sand-200 rounded-lg text-sm font-semibold text-ink-600 hover:bg-sand-50 transition mt-2">닫기</button></div>
             `);
         }
         function exportData(currentOnly) {
             let exportObj = currentOnly ? { __type: 'single', trip: getCurrentTrip() } : { __type: 'full', trips: appData.trips };
-            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `여행데이터.json`; a.click();
+            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `여행데이터.json`; a.click();
         }
         function importData(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
+            const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
             reader.onload = function(evt) {
                 try {
                     const data = JSON.parse(evt.target.result);
-                    if (data.__type === 'single') {
-                        data.trip.id = Date.now();
-                        appData.trips.push(data.trip); appData.currentTripId = data.trip.id;
-                    } else if (data.__type === 'full') {
-                        appData.trips = data.trips; appData.currentTripId = appData.trips[0].id;
-                    }
-                    expandedPlaceIds.clear();
-                    saveData(); renderUI(false); closeModal(); alert("성공적으로 불러왔습니다!");
+                    if (data.__type === 'single') { data.trip.id = Date.now(); appData.trips.push(data.trip); appData.currentTripId = data.trip.id; } else if (data.__type === 'full') { appData.trips = data.trips; appData.currentTripId = appData.trips[0].id; }
+                    expandedPlaceIds.clear(); saveData(); renderUI(false); closeModal(); alert("성공적으로 불러왔습니다!");
                 } catch(err) { alert("파일 형식이 올바르지 않습니다."); }
-            };
-            reader.readAsText(file);
+            }; reader.readAsText(file);
         }
 
-        function changeTrip() { 
-            appData.currentTripId = parseInt(document.getElementById('tripSelect').value); 
-            appData.currentDayIndex = 0; 
-            expandedPlaceIds.clear(); window.highlightedPlaceId = null;
-            saveData(); renderUI(false); 
-        }
+        function changeTrip() { appData.currentTripId = parseInt(document.getElementById('tripSelect').value); appData.currentDayIndex = 0; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); }
         function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
         function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
-        
         function addDay() { getCurrentTrip().days.push([]); appData.currentDayIndex = getCurrentTrip().days.length - 1; window.highlightedPlaceId = null; saveData(); renderUI(true); }
-        
-        // [변경됨] 일자 클릭 시 첫 번째 장소로 지도 이동
         function selectDay(idx) { 
-            appData.currentDayIndex = idx; 
-            window.highlightedPlaceId = null; 
-            saveData(); 
-            
-            // UI를 다시 그리되(true: preserveView), 그 후에 수동으로 패닝 처리
-            renderUI(true); 
-
-            if (idx === 'all') {
-                resetMapView();
-            } else {
-                const trip = getCurrentTrip();
-                const dayPlaces = trip.days[idx];
-                if (dayPlaces && dayPlaces.length > 0) {
-                    const firstPlace = dayPlaces[0];
-                    map.panTo({ lat: firstPlace.lat, lng: firstPlace.lng });
-                    map.setZoom(15);
-                }
-            }
+            appData.currentDayIndex = idx; window.highlightedPlaceId = null; saveData(); renderUI(true); 
+            if (idx === 'all') resetMapView(); else { const trip = getCurrentTrip(); const dayPlaces = trip.days[idx]; if (dayPlaces && dayPlaces.length > 0) { const firstPlace = dayPlaces[0]; map.panTo({ lat: firstPlace.lat, lng: firstPlace.lng }); map.setZoom(15); } }
         }
-        
         function getPlaceAndDay(placeId) {
-            const trip = getCurrentTrip();
-            for (let d = 0; d < trip.days.length; d++) {
-                const p = trip.days[d].find(x => x.id === placeId);
-                if (p) return { p, dayIndex: d };
-            }
-            return { p: null, dayIndex: -1 };
+            const trip = getCurrentTrip(); for (let d = 0; d < trip.days.length; d++) { const p = trip.days[d].find(x => x.id === placeId); if (p) return { p, dayIndex: d }; } return { p: null, dayIndex: -1 };
         }
-
         function duplicatePlace(placeId) {
-            const trip = getCurrentTrip();
-            for (let d = 0; d < trip.days.length; d++) {
-                const idx = trip.days[d].findIndex(x => x.id === placeId);
-                if (idx !== -1) {
-                    const newPlace = JSON.parse(JSON.stringify(trip.days[d][idx]));
-                    newPlace.id = Date.now();
-                    trip.days[d].splice(idx + 1, 0, newPlace);
-                    saveData(); renderUI(true); return;
-                }
-            }
+            const trip = getCurrentTrip(); for (let d = 0; d < trip.days.length; d++) { const idx = trip.days[d].findIndex(x => x.id === placeId); if (idx !== -1) { const newPlace = JSON.parse(JSON.stringify(trip.days[d][idx])); newPlace.id = Date.now(); trip.days[d].splice(idx + 1, 0, newPlace); saveData(); renderUI(true); return; } }
         }
-
         function deletePlace(placeId) {
             if(!confirm('이 장소를 삭제하시겠습니까?')) return;
-            const trip = getCurrentTrip();
-            trip.days = trip.days.map(day => day.filter(p => p.id !== placeId));
-            expandedPlaceIds.delete(placeId);
-            if(window.highlightedPlaceId === placeId) window.highlightedPlaceId = null;
-            saveData(); renderUI(true);
+            const trip = getCurrentTrip(); trip.days = trip.days.map(day => day.filter(p => p.id !== placeId)); expandedPlaceIds.delete(placeId); if(window.highlightedPlaceId === placeId) window.highlightedPlaceId = null; saveData(); renderUI(true);
         }
-
-        function updatePlaceField(placeId, field, value) {
-            const { p } = getPlaceAndDay(placeId);
-            if(p) { 
-                p[field] = value; saveData(); 
-                if(['category','transport','linkedResId', 'customLabel', 'currency', 'name', 'customRate', 'cost', 'memo', 'url'].includes(field)) renderUI(true); 
-            }
-        }
-
-        function scrollToBottom() {
-            setTimeout(() => {
-                const container = document.getElementById('currentDayContainer');
-                if (container) {
-                    const items = container.querySelectorAll('.place-item');
-                    if(items.length > 0) items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    else container.scrollTop = container.scrollHeight;
-                }
-            }, 150); 
-        }
+        function updatePlaceField(placeId, field, value) { const { p } = getPlaceAndDay(placeId); if(p) { p[field] = value; saveData(); if(['category','transport','linkedResId', 'customLabel', 'currency', 'name', 'customRate', 'cost', 'memo', 'url'].includes(field)) renderUI(true); } }
+        function scrollToBottom() { setTimeout(() => { const container = document.getElementById('currentDayContainer'); if (container) { const items = container.querySelectorAll('.place-item'); if(items.length > 0) items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' }); else container.scrollTop = container.scrollHeight; } }, 150); }
 
         function searchPlace() {
-            const query = document.getElementById('searchInput').value.trim();
-            if (!query) return;
-            const resDiv = document.getElementById('searchResults');
-            resDiv.innerHTML = '<div class="p-3 text-xs text-ink-500 text-center">검색 중...</div>';
-            resDiv.classList.remove('hidden');
-
+            const query = document.getElementById('searchInput').value.trim(); if (!query) return; const resDiv = document.getElementById('searchResults'); resDiv.innerHTML = '<div class="p-3 text-xs text-ink-500 text-center">검색 중...</div>'; resDiv.classList.remove('hidden');
             const request = { query: query, location: map.getCenter(), radius: 50000, language: 'ko' };
             placesService.textSearch(request, (results, status) => {
-                resDiv.innerHTML = '';
-                if (status !== google.maps.places.PlacesServiceStatus.OK || !results || !results.length) {
-                    resDiv.innerHTML = '<div class="p-3 text-xs text-ink-500 text-center">검색 결과가 없습니다.</div>';
-                    return;
-                }
+                resDiv.innerHTML = ''; if (status !== google.maps.places.PlacesServiceStatus.OK || !results || !results.length) { resDiv.innerHTML = '<div class="p-3 text-xs text-ink-500 text-center">검색 결과가 없습니다.</div>'; return; }
                 results.slice(0, 8).forEach(item => {
-                    const mainName = item.name; const subName = item.formatted_address || '';
-                    const lat = item.geometry.location.lat(); const lng = item.geometry.location.lng();
-                    const googlePlaceId = item.place_id || null;
-
-                    const div = document.createElement('div');
-                    div.className = "p-3 border-b hover:bg-coral-50 cursor-pointer flex flex-col";
-                    div.innerHTML = `<span class="text-sm font-bold text-navy-900">${mainName}</span><span class="text-[10px] text-ink-500 truncate mt-0.5">${subName}</span>`;
+                    const mainName = item.name; const subName = item.formatted_address || ''; const lat = item.geometry.location.lat(); const lng = item.geometry.location.lng(); const googlePlaceId = item.place_id || null;
+                    const div = document.createElement('div'); div.className = "p-3 border-b hover:bg-coral-50 cursor-pointer flex flex-col"; div.innerHTML = `<span class="text-sm font-bold text-navy-900">${mainName}</span><span class="text-[10px] text-ink-500 truncate mt-0.5">${subName}</span>`;
                     div.onclick = () => {
-                        let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
-                        const newId = Date.now();
+                        let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex; const newId = Date.now();
                         getCurrentTrip().days[targetDayIdx].push({ id: newId, name: mainName, lat, lng, category: 'sightseeing', customLabel: '', transport: 'car', visited: false, rating: 0, currency: 'KRW', googlePlaceId });
-                        const searchInput = document.getElementById('searchInput');
-                        searchInput.value = ''; searchInput.blur();
-                        resDiv.innerHTML = ''; resDiv.classList.add('hidden');
-                        expandedPlaceIds.add(newId); saveData(); renderUI(true);
-                        setTimeout(() => { map.panTo({ lat, lng }); map.setZoom(16); scrollToBottom(); }, 100);
-                    };
-                    resDiv.appendChild(div);
+                        const searchInput = document.getElementById('searchInput'); searchInput.value = ''; searchInput.blur(); resDiv.innerHTML = ''; resDiv.classList.add('hidden');
+                        expandedPlaceIds.add(newId); saveData(); renderUI(true); setTimeout(() => { map.panTo({ lat, lng }); map.setZoom(16); scrollToBottom(); }, 100);
+                    }; resDiv.appendChild(div);
                 });
             });
         }
 
         function findMyLocation() {
             if (navigator.geolocation) {
-                const btn = document.querySelector('button[title="내 위치 찾기"]');
-                btn.innerHTML = '⏳';
+                const btn = document.querySelector('button[title="내 위치 찾기"]'); btn.innerHTML = '⏳';
                 navigator.geolocation.getCurrentPosition(
                     (pos) => { map.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude }); map.setZoom(15); btn.innerHTML = '🎯'; },
                     (err) => { alert("위치 접근이 차단되어 있습니다."); btn.innerHTML = '🎯'; }
                 );
             } else { alert("지원하지 않는 브라우저입니다."); }
         }
-
         function toggleMapMode() {
-            mapClickMode = !mapClickMode;
-            const btn = document.getElementById('mapModeBtn'); const span = btn.querySelector('span');
-            if (mapClickMode) {
-                btn.classList.add('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.remove('bg-white', 'text-navy-800', 'border-sand-200');
-                span.textContent = '지도 클릭으로 장소 추가 (ON)';
-            } else {
-                btn.classList.remove('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.add('bg-white', 'text-navy-800', 'border-sand-200');
-                span.textContent = '지도 클릭으로 장소 추가 (OFF)';
-            }
+            mapClickMode = !mapClickMode; const btn = document.getElementById('mapModeBtn'); const span = btn.querySelector('span');
+            if (mapClickMode) { btn.classList.add('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.remove('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (ON)'; } else { btn.classList.remove('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.add('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (OFF)'; }
         }
 
         function formatDurationKorean(totalMinutes) {
             if (totalMinutes <= 0) return '[0분]';
-            const days = Math.floor(totalMinutes / (24 * 60));
-            const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-            const minutes = totalMinutes % 60;
-            let result = [];
-            if (days > 0) result.push(`${days}일`);
-            if (hours > 0) result.push(`${hours}시간`);
-            if (minutes > 0) result.push(`${minutes}분`);
-            return `[${result.join(' ')}]`;
+            const days = Math.floor(totalMinutes / (24 * 60)); const hours = Math.floor((totalMinutes % (24 * 60)) / 60); const minutes = totalMinutes % 60;
+            let result = []; if (days > 0) result.push(`${days}일`); if (hours > 0) result.push(`${hours}시간`); if (minutes > 0) result.push(`${minutes}분`); return `[${result.join(' ')}]`;
         }
 
-        function focusPlaceOnMap(placeId) {
-            window.highlightedPlaceId = placeId;
-            const { p } = getPlaceAndDay(placeId);
-            if (p) { map.panTo({ lat: p.lat, lng: p.lng }); map.setZoom(16); }
-            renderMapRoutes(true);
-        }
-
-        function buildDirectionsUrl(p) {
-            if (p.googlePlaceId) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}&query_place_id=${p.googlePlaceId}`;
-            return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`;
-        }
-
+        function focusPlaceOnMap(placeId) { window.highlightedPlaceId = placeId; const { p } = getPlaceAndDay(placeId); if (p) { map.panTo({ lat: p.lat, lng: p.lng }); map.setZoom(16); } renderMapRoutes(true); }
+        function buildDirectionsUrl(p) { if (p.googlePlaceId) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}&query_place_id=${p.googlePlaceId}`; return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`; }
         function resetMapView() {
-            window.highlightedPlaceId = null; 
-            const trip = getCurrentTrip();
-            let allLatLngs = [];
+            window.highlightedPlaceId = null; const trip = getCurrentTrip(); let allLatLngs = [];
             trip.days.forEach(day => day.forEach(p => allLatLngs.push({ lat: p.lat, lng: p.lng })));
-            if (allLatLngs.length > 1) {
-                const bounds = new google.maps.LatLngBounds();
-                allLatLngs.forEach(p => bounds.extend(p));
-                map.fitBounds(bounds, 40);
-            } else if (allLatLngs.length === 1) {
-                map.panTo(allLatLngs[0]); map.setZoom(14);
-            }
+            if (allLatLngs.length > 1) { const bounds = new google.maps.LatLngBounds(); allLatLngs.forEach(p => bounds.extend(p)); map.fitBounds(bounds, 40); } else if (allLatLngs.length === 1) { map.panTo(allLatLngs[0]); map.setZoom(14); }
             renderMapRoutes(true);
         }
-
         function getDuration(d, a) {
-            if(!d || !a) return null;
-            const [h1, m1] = d.split(':').map(Number); const [h2, m2] = a.split(':').map(Number);
-            if(isNaN(h1)||isNaN(m1)||isNaN(h2)||isNaN(m2)) return null;
-            let mins = (h2*60+m2) - (h1*60+m1);
-            if(mins < 0) mins += 24*60; 
-            return mins;
+            if(!d || !a) return null; const [h1, m1] = d.split(':').map(Number); const [h2, m2] = a.split(':').map(Number);
+            if(isNaN(h1)||isNaN(m1)||isNaN(h2)||isNaN(m2)) return null; let mins = (h2*60+m2) - (h1*60+m1); if(mins < 0) mins += 24*60; return mins;
         }
-
         function getEffectiveTimes(p) {
-            let dTime = p.departTime, aTime = p.arriveTime;
-            const trip = getCurrentTrip();
-            if (p.linkedResId) {
-                const res = trip.reservations.find(r => r.id == p.linkedResId);
-                if (res && res.type === 'transport') {
-                    if (res.departTime) dTime = res.departTime;
-                    if (res.arriveTime) aTime = res.arriveTime;
-                }
-            }
+            let dTime = p.departTime, aTime = p.arriveTime; const trip = getCurrentTrip();
+            if (p.linkedResId) { const res = trip.reservations.find(r => r.id == p.linkedResId); if (res && res.type === 'transport') { if (res.departTime) dTime = res.departTime; if (res.arriveTime) aTime = res.arriveTime; } }
             return { dTime, aTime };
         }
-
         function updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, isFallback = false) {
-            const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`);
-            if (!resultEl) return;
+            const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`); if (!resultEl) return;
             let timeStr = ''; let finalDurStr = '';
             if (transport === 'transit' || transport === 'flight') {
-                const { dTime, aTime } = getEffectiveTimes(p2);
-                const manualDuration = getDuration(dTime, aTime);
+                const { dTime, aTime } = getEffectiveTimes(p2); const manualDuration = getDuration(dTime, aTime);
                 timeStr = (dTime && aTime) ? `<span class="text-coral-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
                 finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
             } else { finalDurStr = formatDurationKorean(avgMin); }
@@ -637,129 +398,49 @@
         }
 
         function openResModal(editId = null) {
-            /* ... (기존 예약 모달 로직 유지) ... */
-            const trip = getCurrentTrip();
-            const editing = editId ? trip.reservations.find(r => r.id === editId) : null;
-            const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition";
-            const initialType = editing ? editing.type : 'hotel'; 
-            
+            const trip = getCurrentTrip(); const editing = editId ? trip.reservations.find(r => r.id === editId) : null; const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const initialType = editing ? editing.type : 'hotel'; 
             openModal(`
                 <form id="resForm" class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
-                    <div>
-                        <label class="text-xs font-bold text-ink-600">종류</label>
-                        <select name="type" onchange="toggleResFields(this.value)" class="${inputCls}">
-                            <option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option>
-                            <option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option>
-                            <option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-ink-600">제목 (필수)</label>
-                        <input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="${inputCls}" />
-                    </div>
-                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'transport' ? 'hidden' : ''}">
-                        <div><label class="text-xs font-bold text-coral-600">출발 시간</label><input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" /></div>
-                        <div><label class="text-xs font-bold text-coral-600">도착 시간</label><input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" /></div>
-                    </div>
-                    <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}">
-                        <div><label class="text-xs font-bold text-coral-600">체크인 날짜</label><input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${inputCls}" /></div>
-                        <div><label class="text-xs font-bold text-coral-600">체크아웃 날짜</label><input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${inputCls}" /></div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div id="genericDateWrap" class="${initialType === 'hotel' ? 'hidden' : ''}"><label class="text-xs font-bold text-ink-600">일시/날짜</label><input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" /></div>
-                        <div><label class="text-xs font-bold text-ink-600">링크 (URL)</label><input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="${inputCls}" /></div>
-                    </div>
+                    <div><label class="text-xs font-bold text-ink-600">종류</label><select name="type" onchange="toggleResFields(this.value)" class="${inputCls}"><option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option><option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option><option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option></select></div>
+                    <div><label class="text-xs font-bold text-ink-600">제목 (필수)</label><input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="${inputCls}" /></div>
+                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'transport' ? 'hidden' : ''}"><div><label class="text-xs font-bold text-coral-600">출발 시간</label><input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" /></div><div><label class="text-xs font-bold text-coral-600">도착 시간</label><input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" /></div></div>
+                    <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}"><div><label class="text-xs font-bold text-coral-600">체크인 날짜</label><input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${inputCls}" /></div><div><label class="text-xs font-bold text-coral-600">체크아웃 날짜</label><input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${inputCls}" /></div></div>
+                    <div class="grid grid-cols-2 gap-2"><div id="genericDateWrap" class="${initialType === 'hotel' ? 'hidden' : ''}"><label class="text-xs font-bold text-ink-600">일시/날짜</label><input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" /></div><div><label class="text-xs font-bold text-ink-600">링크 (URL)</label><input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="${inputCls}" /></div></div>
                     <div><label class="text-xs font-bold text-ink-600">메모 (예약번호 등)</label><input name="note" value="${editing ? (editing.note||'') : ''}" class="${inputCls}" /></div>
-                    <div>
-                        <label class="text-xs font-bold text-ink-600">바우처 파일 첨부 (이미지/PDF)</label>
-                        <input type="file" id="resFileInput" accept="image/*,.pdf" class="w-full mt-1.5 text-xs" />
-                        ${editing && editing.voucher ? `<p class="text-[11px] text-coral-600 mt-1">현재 첨부됨: ${editing.voucher.name} (새로 등록 시 덮어씀)</p>` : ''}
-                    </div>
-                    <div class="flex gap-2 pt-4">
-                        <button type="button" onclick="closeModal()" class="flex-1 py-2.5 rounded-lg border border-sand-200 text-sm font-semibold text-ink-600 hover:bg-sand-50 transition">취소</button>
-                        <button type="submit" class="flex-1 py-2.5 rounded-lg bg-coral-500 text-white text-sm font-bold hover:bg-coral-600 transition">저장</button>
-                    </div>
+                    <div><label class="text-xs font-bold text-ink-600">바우처 파일 첨부 (이미지/PDF)</label><input type="file" id="resFileInput" accept="image/*,.pdf" class="w-full mt-1.5 text-xs" />${editing && editing.voucher ? `<p class="text-[11px] text-coral-600 mt-1">현재 첨부됨: ${editing.voucher.name} (새로 등록 시 덮어씀)</p>` : ''}</div>
+                    <div class="flex gap-2 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-2.5 rounded-lg border border-sand-200 text-sm font-semibold text-ink-600 hover:bg-sand-50 transition">취소</button><button type="submit" class="flex-1 py-2.5 rounded-lg bg-coral-500 text-white text-sm font-bold hover:bg-coral-600 transition">저장</button></div>
                 </form>
             `);
-
             document.getElementById('resForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const fileInput = document.getElementById('resFileInput');
+                e.preventDefault(); const fileInput = document.getElementById('resFileInput');
                 const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', voucher: editing ? editing.voucher : null };
-                if (this.type.value === 'hotel') { const checkIn = this.checkIn.value; const checkOut = this.checkOut.value; data.checkIn = checkIn; data.checkOut = checkOut; data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || ''); } 
-                else { data.date = this.date.value.trim(); data.checkIn = ''; data.checkOut = ''; }
-
+                if (this.type.value === 'hotel') { const checkIn = this.checkIn.value; const checkOut = this.checkOut.value; data.checkIn = checkIn; data.checkOut = checkOut; data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || ''); } else { data.date = this.date.value.trim(); data.checkIn = ''; data.checkOut = ''; }
                 const saveAndClose = () => { if (editing) Object.assign(editing, data); else trip.reservations.push({ id: Date.now(), ...data }); saveData(); closeModal(); renderUI(true); };
-                if (fileInput.files && fileInput.files[0]) {
-                    const file = fileInput.files[0]; const reader = new FileReader();
-                    reader.onload = (evt) => { data.voucher = { name: file.name, dataUrl: evt.target.result }; saveAndClose(); };
-                    reader.readAsDataURL(file);
-                } else { saveAndClose(); }
+                if (fileInput.files && fileInput.files[0]) { const file = fileInput.files[0]; const reader = new FileReader(); reader.onload = (evt) => { data.voucher = { name: file.name, dataUrl: evt.target.result }; saveAndClose(); }; reader.readAsDataURL(file); } else { saveAndClose(); }
             });
         }
-        function toggleResFields(type) {
-            document.getElementById('transportTimes').classList.toggle('hidden', type !== 'transport');
-            document.getElementById('hotelDates').classList.toggle('hidden', type !== 'hotel');
-            document.getElementById('genericDateWrap').classList.toggle('hidden', type === 'hotel');
-        }
-        function deleteReservation(id) {
-            if(!confirm('이 예약을 삭제할까요?')) return;
-            const trip = getCurrentTrip(); trip.reservations = trip.reservations.filter(r => r.id !== id);
-            trip.days.forEach(d => d.forEach(p => { if(p.linkedResId == id) p.linkedResId = ''; }));
-            saveData(); renderUI(true);
-        }
+        function toggleResFields(type) { document.getElementById('transportTimes').classList.toggle('hidden', type !== 'transport'); document.getElementById('hotelDates').classList.toggle('hidden', type !== 'hotel'); document.getElementById('genericDateWrap').classList.toggle('hidden', type === 'hotel'); }
+        function deleteReservation(id) { if(!confirm('이 예약을 삭제할까요?')) return; const trip = getCurrentTrip(); trip.reservations = trip.reservations.filter(r => r.id !== id); trip.days.forEach(d => d.forEach(p => { if(p.linkedResId == id) p.linkedResId = ''; })); saveData(); renderUI(true); }
 
-        // [변경됨] 통계(대시보드) 렌더링 함수 추가
         function renderDashboard() {
-            const trip = getCurrentTrip();
-            const container = document.getElementById('dashboardTab');
-            
-            let totalRating = 0, ratedCount = 0;
-            let totalVisitedCount = 0, totalCost = 0;
-            let totalDist = 0, totalTime = 0;
-
-            let catStats = {}; 
-            let dayStats = [];
-            let transportStats = {}; 
-
+            const trip = getCurrentTrip(); const container = document.getElementById('dashboardTab');
+            let totalRating = 0, ratedCount = 0; let totalVisitedCount = 0, totalCost = 0; let totalDist = 0, totalTime = 0;
+            let catStats = {}; let dayStats = []; let transportStats = {}; 
             Object.keys(categories).forEach(k => catStats[k] = { count: 0, cost: 0, ratingSum: 0, ratedCount: 0 });
             Object.keys(transportMeta).forEach(k => transportStats[k] = { dist: 0, time: 0 });
 
             trip.days.forEach((day, dIdx) => {
                 let dCount = 0, dCost = 0, dDist = 0, dTime = 0, dRatingSum = 0, dRatedCount = 0;
-
                 day.forEach((p, pIdx) => {
-                    if (p.rating > 0) {
-                        totalRating += p.rating; ratedCount++;
-                        dRatingSum += p.rating; dRatedCount++;
-                        if (catStats[p.category]) { catStats[p.category].ratingSum += p.rating; catStats[p.category].ratedCount++; }
-                    }
-                    if (p.visited) {
-                        totalVisitedCount++; dCount++;
-                        if (catStats[p.category]) catStats[p.category].count++;
-                    }
-
-                    // 비용 계산 (기본적으로 KRW 합산)
-                    let pCost = 0;
-                    if (p.cost) {
-                        if (p.currency === 'CUSTOM' && p.customRate) pCost = Number(p.cost) * Number(p.customRate);
-                        else pCost = Number(p.cost); // 환율 처리 생략(모두 같은 원화로 가정하여 단순 합산)
-                    }
-                    totalCost += pCost; dCost += pCost;
-                    if (catStats[p.category]) catStats[p.category].cost += pCost;
-
-                    // 이동거리/시간 (이전 장소로부터의 직선거리(Haversine) 예상치 계산)
+                    if (p.rating > 0) { totalRating += p.rating; ratedCount++; dRatingSum += p.rating; dRatedCount++; if (catStats[p.category]) { catStats[p.category].ratingSum += p.rating; catStats[p.category].ratedCount++; } }
+                    if (p.visited) { totalVisitedCount++; dCount++; if (catStats[p.category]) catStats[p.category].count++; }
+                    let pCost = 0; if (p.cost) { if (p.currency === 'CUSTOM' && p.customRate) pCost = Number(p.cost) * Number(p.customRate); else pCost = Number(p.cost); }
+                    totalCost += pCost; dCost += pCost; if (catStats[p.category]) catStats[p.category].cost += pCost;
                     if (pIdx > 0) {
-                        const prev = day[pIdx - 1];
-                        const trans = p.transport || 'car';
-                        const tMeta = transportMeta[trans] || transportMeta['car'];
-                        const dist = haversineKm(prev.lat, prev.lng, p.lat, p.lng);
-                        const time = Math.max(1, Math.round((dist / (tMeta.speed || 60)) * 60));
-
-                        totalDist += dist; totalTime += time;
-                        dDist += dist; dTime += time;
-                        if (transportStats[trans]) { transportStats[trans].dist += dist; transportStats[trans].time += time; }
+                        const prev = day[pIdx - 1]; const trans = p.transport || 'car'; const tMeta = transportMeta[trans] || transportMeta['car'];
+                        const dist = haversineKm(prev.lat, prev.lng, p.lat, p.lng); const time = Math.max(1, Math.round((dist / (tMeta.speed || 60)) * 60));
+                        totalDist += dist; totalTime += time; dDist += dist; dTime += time; if (transportStats[trans]) { transportStats[trans].dist += dist; transportStats[trans].time += time; }
                     }
                 });
                 dayStats.push({ count: dCount, cost: dCost, dist: dDist, time: dTime, ratingSum: dRatingSum, ratedCount: dRatedCount });
@@ -767,11 +448,23 @@
 
             const avgOverall = ratedCount > 0 ? (totalRating / ratedCount).toFixed(1) : '0.0';
 
-            // HTML 생성
-            let html = `<h2 class="font-extrabold text-navy-900 text-base md:text-lg mb-2">📊 이번 여행 통계</h2>`;
-            
-            // 1. 평점 통계
-            html += `
+            const catRatingHtml = Object.keys(catStats).filter(k => catStats[k].ratedCount > 0).map(k => {
+                const avg = catStats[k].ratingSum / catStats[k].ratedCount;
+                return `<div class="flex items-center gap-2 text-[11px]"><span class="w-12 truncate text-ink-600">${categories[k].label}</span><div class="flex-1 bg-sand-100 h-2.5 rounded-full overflow-hidden"><div class="bg-yellow-400 h-full rounded-full" style="width: ${(avg/5)*100}%"></div></div><span class="font-bold text-navy-800 w-6 text-right">${avg.toFixed(1)}</span></div>`;
+            }).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>';
+
+            const dayRatingHtml = dayStats.map((d, i) => {
+                if (d.ratedCount === 0) return ''; const avg = d.ratingSum / d.ratedCount;
+                return `<div class="flex items-center gap-2 text-[11px]"><span class="w-10 text-ink-600">Day ${i+1}</span><div class="flex-1 bg-sand-100 h-2.5 rounded-full overflow-hidden"><div class="bg-yellow-400 h-full rounded-full" style="width: ${(avg/5)*100}%"></div></div><span class="font-bold text-navy-800 w-6 text-right">${avg.toFixed(1)}</span></div>`;
+            }).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>';
+
+            const catByCount = Object.entries(catStats).filter(([k,v]) => v.count > 0).sort((a,b) => b[1].count - a[1].count);
+            const catByCost = Object.entries(catStats).filter(([k,v]) => v.cost > 0).sort((a,b) => b[1].cost - a[1].cost);
+            const transArr = Object.entries(transportStats).filter(([k,v]) => v.dist > 0).sort((a,b) => b[1].dist - a[1].dist);
+            const maxDist = transArr.length > 0 ? Math.max(...transArr.map(x => x[1].dist)) : 1;
+
+            container.innerHTML = `
+                <h2 class="font-extrabold text-navy-900 text-base md:text-lg mb-2">📊 이번 여행 통계</h2>
                 <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
                     <div class="text-center mb-4">
                         <p class="text-xs font-bold text-ink-500 mb-1">전체 평균 평점</p>
@@ -779,28 +472,11 @@
                         <p class="text-[10px] text-ink-400 mt-1">(${ratedCount}개 장소 평가됨)</p>
                     </div>
                     <div class="grid grid-cols-2 gap-4 pt-4 border-t border-sand-100">
-                        <div>
-                            <p class="text-[11px] font-bold text-ink-600 mb-2">카테고리별 평점</p>
-                            <div class="space-y-1">
-                                ${Object.keys(catStats).filter(k => catStats[k].ratedCount > 0).map(k => 
-                                    `<div class="flex justify-between text-[11px]"><span class="text-ink-600">${categories[k].label}</span> <span class="font-bold text-navy-800">⭐${(catStats[k].ratingSum / catStats[k].ratedCount).toFixed(1)}</span></div>`
-                                ).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-[11px] font-bold text-ink-600 mb-2">일정별 평점</p>
-                            <div class="space-y-1">
-                                ${dayStats.map((d, i) => d.ratedCount > 0 ? 
-                                    `<div class="flex justify-between text-[11px]"><span class="text-ink-600">Day ${i+1}</span> <span class="font-bold text-navy-800">⭐${(d.ratingSum / d.ratedCount).toFixed(1)}</span></div>` : ''
-                                ).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
-                            </div>
-                        </div>
+                        <div><p class="text-[11px] font-bold text-ink-600 mb-2">카테고리별 평점</p><div class="space-y-1.5">${catRatingHtml}</div></div>
+                        <div><p class="text-[11px] font-bold text-ink-600 mb-2">일정별 평점</p><div class="space-y-1.5">${dayRatingHtml}</div></div>
                     </div>
                 </div>
-            `;
-
-            // 2. 전체 요약 통계
-            html += `
+                
                 <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
                     <p class="text-[11px] font-bold text-ink-500 mb-3">전체 요약</p>
                     <div class="grid grid-cols-2 gap-3">
@@ -810,123 +486,95 @@
                         <div class="bg-sand-50 p-2 rounded-lg text-center"><p class="text-[10px] text-ink-500">총 이동 시간</p><p class="text-sm font-bold text-navy-900">${formatDurationKorean(totalTime)}</p></div>
                     </div>
                 </div>
-            `;
 
-            // 3. 일자별 통계
-            html += `
-                <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
-                    <p class="text-[11px] font-bold text-ink-500 mb-3">일자별 통계 (방문, 비용, 거리, 시간)</p>
-                    <div class="space-y-2">
+                <details class="bg-white p-4 rounded-xl border border-sand-200 shadow-card group">
+                    <summary class="cursor-pointer flex justify-between items-center text-[11px] font-bold text-ink-500 list-none outline-none [&::-webkit-details-marker]:hidden">
+                        <span>📅 일자별 요약 (총 ${dayStats.length}일)</span><span class="text-ink-400 transition group-open:rotate-180">▼</span>
+                    </summary>
+                    <div class="space-y-2 mt-3 pt-3 border-t border-sand-100">
                         ${dayStats.map((d, i) => `
                             <div class="flex justify-between items-center bg-sand-50 p-2 rounded-lg text-[11px]">
                                 <span class="font-bold text-navy-800">Day ${i+1}</span>
-                                <div class="text-right flex gap-3 text-ink-600">
-                                    <span>📍 ${d.count}곳</span>
-                                    <span class="text-coral-600">₩${d.cost.toLocaleString()}</span>
-                                    <span>${d.dist.toFixed(1)}km</span>
-                                    <span>${formatDurationKorean(d.time)}</span>
-                                </div>
+                                <div class="text-right flex gap-3 text-ink-600"><span>📍 ${d.count}곳</span><span class="text-coral-600">₩${d.cost.toLocaleString()}</span><span>${d.dist.toFixed(1)}km</span><span>${formatDurationKorean(d.time)}</span></div>
                             </div>
                         `).join('')}
                     </div>
-                </div>
-            `;
+                </details>
 
-            // 4. 구분별 통계 (카테고리, 이동수단)
-            html += `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
-                        <p class="text-[11px] font-bold text-ink-500 mb-3">카테고리별 (장소 수 / 비용)</p>
-                        <div class="space-y-1.5">
-                            ${Object.keys(catStats).filter(k => catStats[k].count > 0 || catStats[k].cost > 0).map(k => `
-                                <div class="flex justify-between text-[11px] bg-sand-50 p-1.5 rounded">
-                                    <span class="text-ink-700">${categories[k].label}</span> 
-                                    <span class="font-semibold text-navy-900">${catStats[k].count}곳 / ₩${catStats[k].cost.toLocaleString()}</span>
+                        <p class="text-[11px] font-bold text-ink-500 mb-3">카테고리별 순위</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-[10px] text-ink-400 mb-2 pb-1 border-b border-sand-100">장소 수</p>
+                                <div class="space-y-1.5">
+                                    ${catByCount.map(([k, v]) => `<div class="flex justify-between text-[11px]"><span class="text-ink-700">${categories[k].label}</span><span class="font-semibold text-navy-900">${v.count}곳</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
                                 </div>
-                            `).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-ink-400 mb-2 pb-1 border-b border-sand-100">예상 비용</p>
+                                <div class="space-y-1.5">
+                                    ${catByCost.map(([k, v]) => `<div class="flex justify-between text-[11px]"><span class="text-ink-700">${categories[k].label}</span><span class="font-semibold text-coral-600">₩${v.cost.toLocaleString()}</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
-                        <p class="text-[11px] font-bold text-ink-500 mb-3">이동수단별 (거리 / 시간)</p>
-                        <div class="space-y-1.5">
-                            ${Object.keys(transportStats).filter(k => transportStats[k].dist > 0).map(k => `
-                                <div class="flex justify-between text-[11px] bg-sand-50 p-1.5 rounded">
-                                    <span class="text-ink-700">${transportMeta[k].label}</span> 
-                                    <span class="font-semibold text-navy-900">${transportStats[k].dist.toFixed(1)}km / ${formatDurationKorean(transportStats[k].time)}</span>
+                        <p class="text-[11px] font-bold text-ink-500 mb-3">이동수단별 통계 (거리 기준)</p>
+                        <div class="space-y-3">
+                            ${transArr.map(([k, v]) => `
+                                <div>
+                                    <div class="flex items-center gap-2 text-[11px] cursor-pointer group" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                                        <span class="w-14 truncate text-ink-700">${transportMeta[k].label}</span>
+                                        <div class="flex-1 bg-sand-100 h-3 rounded overflow-hidden"><div class="bg-navy-400 h-full rounded" style="width: ${(v.dist/maxDist)*100}%"></div></div>
+                                    </div>
+                                    <div class="hidden text-[10px] text-ink-500 text-right mt-1.5 pr-1 bg-sand-50 p-1.5 rounded-lg border border-sand-100 transition-all">
+                                        상세 정보: <span class="text-navy-900 font-semibold">${v.dist.toFixed(1)}km</span> / <span class="text-navy-900 font-semibold">${formatDurationKorean(v.time)}</span>
+                                    </div>
                                 </div>
                             `).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
                         </div>
+                        <p class="text-[9px] text-ink-400 mt-3 pt-2 border-t border-sand-100 text-right">*막대를 누르면 상세 정보 표시</p>
                     </div>
                 </div>
             `;
-
-            container.innerHTML = html;
         }
 
-        /* (이하 기존 함수들: viewVoucherModal, openMemoModal, renderReservations, addChecklistItem 등 유지) */
         function viewVoucherModal(resId) {
-            const trip = getCurrentTrip(); const res = trip.reservations.find(r => r.id == resId);
-            if(!res) return;
+            const trip = getCurrentTrip(); const res = trip.reservations.find(r => r.id == resId); if(!res) return;
             let voucherHtml = `<p class="text-sm text-ink-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
-            if (res.voucher) {
-                if (res.voucher.dataUrl.startsWith('data:image')) voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-sand-200" />`;
-                else voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-coral-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`;
-            }
-            openModal(`
-                <div class="p-6">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1 min-w-0 pr-2">
-                            <h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2>
-                            <p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>
-                            ${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}
-                            ${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime}</p>` : ''}
-                        </div>
-                        <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
-                    </div>
-                    ${voucherHtml}
-                </div>
-            `);
+            if (res.voucher) { if (res.voucher.dataUrl.startsWith('data:image')) voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-sand-200" />`; else voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-coral-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`; }
+            openModal(`<div class="p-6"><div class="flex justify-between items-start mb-4"><div class="flex-1 min-w-0 pr-2"><h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2><p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime}</p>` : ''}</div><button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button></div>${voucherHtml}</div>`);
         }
 
         function openMemoModal(placeId) {
-            const { p } = getPlaceAndDay(placeId);
-            if (!p) return;
+            const { p } = getPlaceAndDay(placeId); if (!p) return;
+            let costText = '';
+            if (p.cost) {
+                if (!p.currency || p.currency === 'KRW') costText = `${Number(p.cost).toLocaleString()}원`;
+                else if (p.currency === 'CUSTOM') { const rate = p.customRate ? Number(p.customRate) : 0; const converted = Math.round(Number(p.cost) * rate); costText = `${Number(p.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`; } 
+                else { const curSym = p.currency === 'USD' ? '$' : p.currency === 'EUR' ? '€' : '¥'; costText = `${curSym}${Number(p.cost).toLocaleString()}`; }
+            }
             openModal(`
                 <div class="p-6">
                     <div class="flex justify-between items-start mb-3">
                         <h2 class="font-bold text-navy-900 text-lg break-words pr-2">📝 ${p.name}</h2>
                         <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
                     </div>
-                    <p class="text-sm text-ink-700 whitespace-pre-wrap break-words bg-sand-50 border border-sand-200 rounded-lg p-3">${p.memo ? p.memo : '메모가 없습니다.'}</p>
+                    <p class="text-sm text-ink-700 whitespace-pre-wrap break-words bg-sand-50 border border-sand-200 rounded-lg p-3">${p.memo ? p.memo : '작성된 메모가 없습니다.'}</p>
                     ${p.url ? `<a href="${p.url.startsWith('http') ? p.url : 'https://'+p.url}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-3 break-all">🔗 ${p.url}</a>` : ''}
+                    ${p.cost ? `<div class="mt-3 pt-3 border-t border-sand-200 text-xs font-bold text-ink-600">💰 예상 비용: <span class="text-coral-600">${costText}</span></div>` : ''}
                 </div>
             `);
         }
 
         function renderReservations() {
-            const trip = getCurrentTrip(); const container = document.getElementById('reservationList');
-            container.innerHTML = '';
+            const trip = getCurrentTrip(); const container = document.getElementById('reservationList'); container.innerHTML = '';
             if(trip.reservations.length === 0) { container.innerHTML = '<div class="text-center text-sm text-ink-400 py-6">등록된 예약이 없습니다.</div>'; return; }
             const icons = { transport: '✈️', hotel: '🏨', other: '🎟️' };
             trip.reservations.forEach(r => {
                 const div = document.createElement('div'); div.className = "bg-white border border-sand-200 p-3 md:p-4 rounded-xl shadow-card hover:shadow-floating transition-shadow";
-                div.innerHTML = `
-                    <div class="flex justify-between items-start gap-2">
-                        <div class="flex items-start gap-2.5 flex-1 min-w-0">
-                            <span class="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-lg shrink-0">${icons[r.type]}</span>
-                            <div class="flex-1 min-w-0 pt-0.5">
-                                <h3 class="font-bold text-sm text-navy-900 truncate">${r.title}</h3>
-                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date} ${r.note ? ` · ${r.note}` : ''}</p>
-                                ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
-                            </div>
-                        </div>
-                        <div class="flex gap-1 shrink-0 mt-0.5">
-                            <button onclick="openResModal(${r.id})" class="text-[10px] font-semibold bg-sand-100 text-ink-700 px-2 py-1 rounded-md hover:bg-sand-200 transition">수정</button>
-                            <button onclick="deleteReservation(${r.id})" class="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
-                        </div>
-                    </div>
-                    ${r.voucher ? `<div class="mt-3 pt-2 border-t border-sand-100"><button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">📎 ${r.voucher.name} 보기</button></div>` : ''}
-                `;
+                div.innerHTML = `<div class="flex justify-between items-start gap-2"><div class="flex items-start gap-2.5 flex-1 min-w-0"><span class="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-lg shrink-0">${icons[r.type]}</span><div class="flex-1 min-w-0 pt-0.5"><h3 class="font-bold text-sm text-navy-900 truncate">${r.title}</h3><p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date} ${r.note ? ` · ${r.note}` : ''}</p>${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}</div></div><div class="flex gap-1 shrink-0 mt-0.5"><button onclick="openResModal(${r.id})" class="text-[10px] font-semibold bg-sand-100 text-ink-700 px-2 py-1 rounded-md hover:bg-sand-200 transition">수정</button><button onclick="deleteReservation(${r.id})" class="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button></div></div>${r.voucher ? `<div class="mt-3 pt-2 border-t border-sand-100"><button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">📎 ${r.voucher.name} 보기</button></div>` : ''}`;
                 container.appendChild(div);
             });
         }
@@ -946,32 +594,16 @@
 
         function toggleDetails(placeId) { 
             const el = document.getElementById(`details-${placeId}`);
-            if(el) {
-                el.classList.toggle('hidden');
-                if (el.classList.contains('hidden')) expandedPlaceIds.delete(placeId);
-                else expandedPlaceIds.add(placeId);
-            }
+            if(el) { el.classList.toggle('hidden'); if (el.classList.contains('hidden')) expandedPlaceIds.delete(placeId); else expandedPlaceIds.add(placeId); }
         }
 
         function renderUI(preserveView = true) {
-            const trip = getCurrentTrip();
-            if(!trip.reservations) trip.reservations = [];
-            if(!trip.checklists) trip.checklists = [];
-
+            const trip = getCurrentTrip(); if(!trip.reservations) trip.reservations = []; if(!trip.checklists) trip.checklists = [];
             document.getElementById('tripSelect').innerHTML = appData.trips.map(t => `<option value="${t.id}" ${t.id===appData.currentTripId?'selected':''}>${t.title}</option>`).join('');
-            
-            renderReservations();
-            renderChecklist();
+            renderReservations(); renderChecklist();
 
             const chipContainer = document.getElementById('dayChipsContainer');
-            chipContainer.innerHTML = `
-                <button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${appData.currentDayIndex === 'all' ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">All</button>
-                <div id="sortableDaysContainer" class="flex gap-2">
-                    ${trip.days.map((d, i) => `
-                        <button data-index="${i}" onclick="selectDay(${i})" class="day-chip cursor-grab px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>
-                    `).join('')}
-                </div>
-            `;
+            chipContainer.innerHTML = `<button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${appData.currentDayIndex === 'all' ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">All</button><div id="sortableDaysContainer" class="flex gap-2">${trip.days.map((d, i) => `<button data-index="${i}" onclick="selectDay(${i})" class="day-chip cursor-grab px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>`).join('')}</div>`;
 
             if (window.daySortableInstance) window.daySortableInstance.destroy();
             const sortableDaysContainer = document.getElementById('sortableDaysContainer');
@@ -979,113 +611,67 @@
                 window.daySortableInstance = new Sortable(sortableDaysContainer, {
                     animation: 150, delay: 150, delayOnTouchOnly: true, ghostClass: 'sortable-ghost',
                     onEnd: function (evt) {
-                        const oldIndex = evt.oldIndex; const newIndex = evt.newIndex;
-                        if (oldIndex === newIndex) return;
-                        const trip = getCurrentTrip();
-                        const movedDay = trip.days.splice(oldIndex, 1)[0];
-                        trip.days.splice(newIndex, 0, movedDay);
-                        if (appData.currentDayIndex !== 'all') {
-                            if (appData.currentDayIndex === oldIndex) appData.currentDayIndex = newIndex;
-                            else if (appData.currentDayIndex > oldIndex && appData.currentDayIndex <= newIndex) appData.currentDayIndex--;
-                            else if (appData.currentDayIndex < oldIndex && appData.currentDayIndex >= newIndex) appData.currentDayIndex++;
-                        }
+                        const oldIndex = evt.oldIndex; const newIndex = evt.newIndex; if (oldIndex === newIndex) return;
+                        const trip = getCurrentTrip(); const movedDay = trip.days.splice(oldIndex, 1)[0]; trip.days.splice(newIndex, 0, movedDay);
+                        if (appData.currentDayIndex !== 'all') { if (appData.currentDayIndex === oldIndex) appData.currentDayIndex = newIndex; else if (appData.currentDayIndex > oldIndex && appData.currentDayIndex <= newIndex) appData.currentDayIndex--; else if (appData.currentDayIndex < oldIndex && appData.currentDayIndex >= newIndex) appData.currentDayIndex++; }
                         saveData(); renderUI(true);
                     }
                 });
             }
 
             const listEl = document.getElementById('dayList'); listEl.innerHTML = '';
-
             const renderDayPlaces = (dayPlaces, dIdx, isAllView) => {
                 if (isAllView) {
-                    const divider = document.createElement('div');
-                    divider.className = `day-divider flex items-center w-full py-3 px-2 opacity-80 ${dayPlaces.length === 0 ? 'pb-8' : ''}`;
-                    divider.innerHTML = `<div class="flex-1 border-t-2 border-dashed border-sand-200"></div><div class="px-4 text-xs font-bold text-ink-500 bg-sand-100 rounded-full mx-2 border border-sand-200">Day ${dIdx + 1}</div><div class="flex-1 border-t-2 border-dashed border-sand-200"></div>`;
-                    listEl.appendChild(divider);
-                    if (dayPlaces.length === 0) {
-                        const emptyZone = document.createElement('div'); emptyZone.className = "empty-day-zone h-6 w-full"; listEl.appendChild(emptyZone);
-                    }
+                    const divider = document.createElement('div'); divider.className = `day-divider flex items-center w-full py-3 px-2 opacity-80 ${dayPlaces.length === 0 ? 'pb-8' : ''}`; divider.innerHTML = `<div class="flex-1 border-t-2 border-dashed border-sand-200"></div><div class="px-4 text-xs font-bold text-ink-500 bg-sand-100 rounded-full mx-2 border border-sand-200">Day ${dIdx + 1}</div><div class="flex-1 border-t-2 border-dashed border-sand-200"></div>`; listEl.appendChild(divider);
+                    if (dayPlaces.length === 0) { const emptyZone = document.createElement('div'); emptyZone.className = "empty-day-zone h-6 w-full"; listEl.appendChild(emptyZone); }
                 }
 
                 dayPlaces.forEach((place, index) => {
-                    const dayColor = dayColors[dIdx % dayColors.length];
-                    const catData = categories[place.category || 'sightseeing'];
-                    const hasRes = !!place.linkedResId;
-
-                    let costText = '';
-                    if (place.cost) {
-                        if (!place.currency || place.currency === 'KRW') costText = `${Number(place.cost).toLocaleString()}원`;
-                        else if (place.currency === 'CUSTOM') {
-                            const rate = place.customRate ? Number(place.customRate) : 0;
-                            const converted = Math.round(Number(place.cost) * rate);
-                            costText = `${Number(place.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`;
-                        } else {
-                            const curSym = place.currency === 'USD' ? '$' : place.currency === 'EUR' ? '€' : '¥';
-                            costText = `${curSym}${Number(place.cost).toLocaleString()}`;
-                        }
-                    }
-
-                    const item = document.createElement('div');
-                    item.className = `place-item bg-white border border-sand-200 rounded-xl shadow-card hover:shadow-floating transition-shadow group ${place.visited ? 'opacity-50' : ''}`;
-                    item.setAttribute('data-id', place.id);
-                    
+                    const dayColor = dayColors[dIdx % dayColors.length]; const catData = categories[place.category || 'sightseeing']; const hasRes = !!place.linkedResId;
+                    const item = document.createElement('div'); item.className = `place-item bg-white border border-sand-200 rounded-xl shadow-card hover:shadow-floating transition-shadow group`; item.setAttribute('data-id', place.id);
                     const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
-                    const ratingBadge = place.rating > 0 ? `<span class="ml-1 text-[11px] font-bold text-yellow-500">⭐${place.rating}</span>` : '';
+                    const catOptions = [{ val: 'sightseeing', text: '📸 명소' }, { val: 'food', text: '🍽️ 식당' }, { val: 'hotel', text: '🛏️ 숙소' }, { val: 'transport', text: '🚌 교통' }, { val: 'important', text: '⭐ 중요' }, { val: 'shopping', text: '🛍️ 쇼핑' }, { val: 'custom', text: place.category === 'custom' && place.customLabel ? `📌 ${place.customLabel}` : '📌 기타' }].map(o => `<option value="${o.val}" ${place.category === o.val ? 'selected' : ''}>${o.text}</option>`).join('');
 
-                    const catOptions = [
-                        { val: 'sightseeing', text: '📸 명소' }, { val: 'food', text: '🍽️ 식당' }, { val: 'hotel', text: '🛏️ 숙소' }, { val: 'transport', text: '🚌 교통' },
-                        { val: 'important', text: '⭐ 중요' }, { val: 'shopping', text: '🛍️ 쇼핑' },
-                        { val: 'custom', text: place.category === 'custom' && place.customLabel ? `📌 ${place.customLabel}` : '📌 기타' }
-                    ].map(o => `<option value="${o.val}" ${place.category === o.val ? 'selected' : ''}>${o.text}</option>`).join('');
-
-                    // [변경됨] 장소 정보 순서: 구분카테고리, 예약/바우처, 메모, 링크 (+비용은 마지막에 유지)
                     item.innerHTML = `
                         <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative rounded-t-xl">
-                            <div class="text-ink-400 hover:text-ink-600 cursor-grab px-1 mt-1 touch-manipulation">⋮⋮</div>
-                            
-                            <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold flex-shrink-0 mx-1 md:mx-2 mt-0.5 transition-colors ring-2 ring-white shadow-md" style="background-color: ${place.visited ? '#B7BEC6' : dayColor}">
-                                ${place.visited ? '✓' : index + 1}
-                            </div>
-
-                            <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
-                                <div class="text-xs md:text-sm font-bold text-navy-900 transition ${place.visited ? 'line-through text-ink-400' : 'hover:text-coral-600'}">
-                                    ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded-full mr-1 font-semibold" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
-                                    ${place.name} ${ratingBadge} <span class="text-ink-400 font-normal ml-0.5">›</span>
+                            <div class="text-ink-400 hover:text-ink-600 cursor-grab px-1 mt-1 touch-manipulation flex-shrink-0">⋮⋮</div>
+                            <div class="flex flex-col items-center mx-1 md:mx-2 mt-0.5 w-6 flex-shrink-0">
+                                <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold transition-colors ring-2 ring-white shadow-md z-10" style="background-color: ${place.visited ? '#B7BEC6' : dayColor}">
+                                    ${place.visited ? '✓' : index + 1}
                                 </div>
-                                <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                    <select onclick="event.stopPropagation()" onchange="updatePlaceField(${place.id}, 'category', this.value)" class="cat-badge appearance-none outline-none cursor-pointer ${catData.color}">
-                                        ${catOptions}
-                                    </select>
-                                    ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
-                                    ${place.memo ? `<button onclick="event.stopPropagation(); openMemoModal(${place.id})" class="cat-badge bg-sand-100 text-ink-600 hover:bg-sand-200 cursor-pointer">📝 메모</button>` : ''}
-                                    ${place.url ? `<a href="${place.url.startsWith('http') ? place.url : 'https://'+place.url}" target="_blank" onclick="event.stopPropagation()" class="cat-badge bg-[#E7F1F8] text-[#2C6E9B] hover:bg-[#D9E9F5] cursor-pointer">🔗 링크</a>` : ''}
-                                    ${place.cost ? `<span class="cat-badge bg-sand-100 text-ink-600">💰 ${costText}</span>` : ''}
-                                </div>
+                                ${place.rating > 0 ? `<div class="mt-1 text-[10px] md:text-[11px] font-bold text-yellow-500 text-center leading-[1.1] z-10 opacity-100 drop-shadow-sm">⭐<br>${place.rating}</div>` : ''}
                             </div>
-                            
-                            <div class="grid grid-cols-2 gap-1 flex-shrink-0 ml-1 mt-0.5 w-[92px]">
-                                <button onclick="focusPlaceOnMap(${place.id})" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-1.5 py-1 rounded-md hover:bg-coral-100 transition whitespace-nowrap flex items-center justify-center">지도</button>
-                                <a href="${buildDirectionsUrl(place)}" target="_blank" rel="noopener" class="text-[10px] font-semibold text-white bg-navy-800 px-1.5 py-1 rounded-md hover:bg-navy-700 transition whitespace-nowrap flex items-center justify-center">길찾기</a>
-                                <button onclick="duplicatePlace(${place.id})" class="text-[10px] font-semibold text-navy-600 bg-sand-100 px-1.5 py-1 rounded-md hover:bg-sand-200 transition whitespace-nowrap flex items-center justify-center">복사</button>
-                                <button onclick="deletePlace(${place.id})" class="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-1 rounded-md hover:bg-red-100 transition whitespace-nowrap flex items-center justify-center">삭제</button>
+                            <div class="flex-1 flex justify-between items-start overflow-hidden transition-opacity ${place.visited ? 'opacity-40 grayscale' : ''}">
+                                <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
+                                    <div class="text-xs md:text-sm font-bold transition ${place.visited ? 'text-ink-500' : 'text-navy-900 hover:text-coral-600'}">
+                                        ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded-full mr-1 font-semibold" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
+                                        ${place.name} <span class="text-ink-400 font-normal ml-0.5">›</span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                        <select onclick="event.stopPropagation()" onchange="updatePlaceField(${place.id}, 'category', this.value)" class="cat-badge appearance-none outline-none cursor-pointer ${catData.color}">
+                                            ${catOptions}
+                                        </select>
+                                        ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
+                                        ${place.memo || place.url || place.cost ? `<button onclick="event.stopPropagation(); openMemoModal(${place.id})" class="cat-badge bg-sand-100 text-ink-600 hover:bg-sand-200 cursor-pointer">📝 정보/메모</button>` : ''}
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-1 flex-shrink-0 ml-1 mt-0.5 w-[92px]">
+                                    <button onclick="focusPlaceOnMap(${place.id})" class="text-[10px] font-semibold text-coral-600 bg-coral-50 px-1.5 py-1 rounded-md hover:bg-coral-100 transition whitespace-nowrap flex items-center justify-center">지도</button>
+                                    <a href="${buildDirectionsUrl(place)}" target="_blank" rel="noopener" class="text-[10px] font-semibold text-white bg-navy-800 px-1.5 py-1 rounded-md hover:bg-navy-700 transition whitespace-nowrap flex items-center justify-center">길찾기</a>
+                                    <button onclick="duplicatePlace(${place.id})" class="text-[10px] font-semibold text-navy-600 bg-sand-100 px-1.5 py-1 rounded-md hover:bg-sand-200 transition whitespace-nowrap flex items-center justify-center">복사</button>
+                                    <button onclick="deletePlace(${place.id})" class="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-1 rounded-md hover:bg-red-100 transition whitespace-nowrap flex items-center justify-center">삭제</button>
+                                </div>
                             </div>
                         </div>
 
-                        <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-sand-50 relative z-10 border-t border-sand-100 text-[11px] md:text-xs rounded-b-xl">
-                            <!-- 상세 정보 필드들은 기존과 동일 유지 -->
+                        <div id="details-${place.id}" class="px-3 pb-3 pt-2 ${isExpanded} bg-sand-50 relative z-10 border-t border-sand-100 text-[11px] md:text-xs rounded-b-xl ${place.visited ? 'opacity-40 grayscale' : ''}">
                             <div class="mb-2"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">장소명 (수정 가능)</label><input type="text" onchange="updatePlaceField(${place.id}, 'name', this.value)" value="${place.name}" class="w-full mt-0.5 p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[11px]"></div>
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <div>
                                     <label class="text-[9px] md:text-[10px] font-bold text-ink-500">카테고리</label>
                                     <div class="flex gap-1 mt-0.5">
                                         <select onchange="updatePlaceField(${place.id}, 'category', this.value)" class="flex-1 p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none">
-                                            <option value="sightseeing" ${!place.category || place.category==='sightseeing'?'selected':''}>📸 명소</option>
-                                            <option value="food" ${place.category==='food'?'selected':''}>🍽️ 식당/카페</option>
-                                            <option value="hotel" ${place.category==='hotel'?'selected':''}>🛏️ 숙소</option>
-                                            <option value="transport" ${place.category==='transport'?'selected':''}>🚌 교통</option>
-                                            <option value="important" ${place.category==='important'?'selected':''}>⭐ 중요</option>
-                                            <option value="shopping" ${place.category==='shopping'?'selected':''}>🛍️ 쇼핑</option>
-                                            <option value="custom" ${place.category==='custom'?'selected':''}>📌 직접입력</option>
+                                            <option value="sightseeing" ${!place.category || place.category==='sightseeing'?'selected':''}>📸 명소</option><option value="food" ${place.category==='food'?'selected':''}>🍽️ 식당/카페</option><option value="hotel" ${place.category==='hotel'?'selected':''}>🛏️ 숙소</option><option value="transport" ${place.category==='transport'?'selected':''}>🚌 교통</option><option value="important" ${place.category==='important'?'selected':''}>⭐ 중요</option><option value="shopping" ${place.category==='shopping'?'selected':''}>🛍️ 쇼핑</option><option value="custom" ${place.category==='custom'?'selected':''}>📌 직접입력</option>
                                         </select>
                                         ${place.category === 'custom' ? `<input type="text" placeholder="입력" value="${place.customLabel||''}" onchange="updatePlaceField(${place.id}, 'customLabel', this.value)" class="w-12 md:w-16 p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none">` : ''}
                                     </div>
@@ -1094,11 +680,7 @@
                                     <label class="text-[9px] md:text-[10px] font-bold text-ink-500">예상 비용</label>
                                     <div class="flex gap-1 mt-0.5">
                                         <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
-                                            <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option>
-                                            <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
-                                            <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
-                                            <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
-                                            <option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율)</option>
+                                            <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option><option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option><option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option><option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option><option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율)</option>
                                         </select>
                                         ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">` : ''}
                                         <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">
@@ -1114,15 +696,11 @@
                     listEl.appendChild(item);
 
                     if (index < dayPlaces.length - 1) {
-                        const nextPlace = dayPlaces[index + 1];
-                        const routeInfo = document.createElement('div');
-                        routeInfo.className = "route-connector flex items-center justify-center gap-1 md:gap-1.5 py-1.5 relative z-0";
+                        const nextPlace = dayPlaces[index + 1]; const routeInfo = document.createElement('div'); routeInfo.className = "route-connector flex items-center justify-center gap-1 md:gap-1.5 py-1.5 relative z-0";
                         routeInfo.innerHTML = `
                             <div class="relative z-10 flex items-center gap-1 md:gap-1.5 bg-sand-50 px-1.5 rounded-full">
                                 <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-white border border-sand-200 rounded-full px-2 py-0.5 text-[9px] md:text-[11px] font-bold text-ink-600 outline-none shadow-card cursor-pointer">
-                                    <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option>
-                                    <option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option>
-                                    <option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
+                                    <option value="car" ${!nextPlace.transport || nextPlace.transport==='car'?'selected':''}>🚗 차량</option><option value="walk" ${nextPlace.transport==='walk'?'selected':''}>🚶 도보</option><option value="transit" ${nextPlace.transport==='transit' || nextPlace.transport==='flight' ? 'selected' : ''}>✈️/🚌 항공/대중교통</option>
                                 </select>
                                 <span id="route-result-${dIdx}-${index}" class="text-[9px] md:text-[11px] text-ink-500 font-semibold">(계산 중...)</span>
                             </div>
@@ -1132,8 +710,7 @@
                 });
             };
 
-            if (appData.currentDayIndex === 'all') trip.days.forEach((dayPlaces, dIdx) => renderDayPlaces(dayPlaces, dIdx, true));
-            else renderDayPlaces(trip.days[appData.currentDayIndex] || [], appData.currentDayIndex, false);
+            if (appData.currentDayIndex === 'all') trip.days.forEach((dayPlaces, dIdx) => renderDayPlaces(dayPlaces, dIdx, true)); else renderDayPlaces(trip.days[appData.currentDayIndex] || [], appData.currentDayIndex, false);
 
             if(sortableInstance) sortableInstance.destroy();
             sortableInstance = new Sortable(listEl, {
@@ -1146,8 +723,7 @@
                             if (el.classList && el.classList.contains('day-divider')) { currentDayArray = []; newDays.push(currentDayArray); } 
                             else if (el.classList && el.classList.contains('place-item')) {
                                 if (!currentDayArray) { currentDayArray = []; newDays.push(currentDayArray); }
-                                const id = parseInt(el.getAttribute('data-id'));
-                                let foundPlace = null;
+                                const id = parseInt(el.getAttribute('data-id')); let foundPlace = null;
                                 for (const d of trip.days) { const p = d.find(x => x.id === id); if (p) { foundPlace = p; break; } }
                                 if (foundPlace) currentDayArray.push(foundPlace);
                             }
@@ -1155,18 +731,10 @@
                         while(newDays.length < trip.days.length) newDays.push([]);
                         while(newDays.length > trip.days.length) { const extra = newDays.shift(); newDays[0] = [...extra, ...newDays[0]]; }
                         trip.days = newDays;
-                    } else {
-                        const newPlaces = [];
-                        listEl.querySelectorAll('.place-item').forEach(el => {
-                            const id = parseInt(el.getAttribute('data-id'));
-                            newPlaces.push(trip.days[appData.currentDayIndex].find(p => p.id === id));
-                        });
-                        trip.days[appData.currentDayIndex] = newPlaces; 
-                    }
+                    } else { const newPlaces = []; listEl.querySelectorAll('.place-item').forEach(el => { const id = parseInt(el.getAttribute('data-id')); newPlaces.push(trip.days[appData.currentDayIndex].find(p => p.id === id)); }); trip.days[appData.currentDayIndex] = newPlaces; }
                     saveData(); renderUI(true);
                 }
             });
-
             renderMapRoutes(preserveView);
         }
 
@@ -1179,36 +747,25 @@
         function renderMapRoutes(preserveView = true) {
             const currentRenderId = Date.now(); latestRenderId = currentRenderId;
             mapLayers.forEach(layer => layer.setMap(null)); mapLayers = [];
-            
             const trip = getCurrentTrip(); let allLatLngs = [];
             trip.days.forEach((dayPlaces, dayIndex) => {
                 const defaultColor = dayColors[dayIndex % dayColors.length];
                 dayPlaces.forEach((place, pIndex) => {
-                    const markerColor = place.visited ? '#9ca3af' : defaultColor;
-                    const catIcon = categories[place.category || 'sightseeing'].label.split(' ')[0]; 
+                    const markerColor = place.visited ? '#9ca3af' : defaultColor; const catIcon = categories[place.category || 'sightseeing'].label.split(' ')[0]; 
                     const marker = new google.maps.Marker({ position: { lat: place.lat, lng: place.lng }, map: map, icon: buildMarkerIcon(markerColor, catIcon, place.visited ? '✓' : String(pIndex + 1)), title: place.name });
                     const info = new google.maps.InfoWindow({ content: `<div style="text-align:center;"><b style="font-size:12px; ${place.visited ? 'text-decoration: line-through; color: gray;' : ''}">${place.name}</b><br><span style="font-size:10px;color:gray;">Day ${dayIndex + 1}</span></div>` });
                     marker.addListener('click', () => info.open(map, marker));
                     mapLayers.push(marker); allLatLngs.push({ lat: place.lat, lng: place.lng });
                 });
             });
-
-            if (!preserveView && allLatLngs.length > 0) {
-                if (allLatLngs.length > 1) { const bounds = new google.maps.LatLngBounds(); allLatLngs.forEach(p => bounds.extend(p)); map.fitBounds(bounds, 20); }
-                else { map.panTo(allLatLngs[0]); map.setZoom(14); }
-            }
+            if (!preserveView && allLatLngs.length > 0) { if (allLatLngs.length > 1) { const bounds = new google.maps.LatLngBounds(); allLatLngs.forEach(p => bounds.extend(p)); map.fitBounds(bounds, 20); } else { map.panTo(allLatLngs[0]); map.setZoom(14); } }
 
             for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
                 const dayPlaces = trip.days[dayIndex]; const baseColor = dayColors[dayIndex % dayColors.length];
                 for (let i = 1; i < dayPlaces.length; i++) {
-                    const p1 = dayPlaces[i-1]; const p2 = dayPlaces[i];
-                    const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor;
-                    const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
-                    let isActiveSegment = true;
-                    if (window.highlightedPlaceId) isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
-                    
-                    const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db';
-                    const strokeOpacity = isActiveSegment ? 1.0 : 0.3; const haloOpacity = isActiveSegment ? 0.9 : 0.2; const zIdx = isActiveSegment ? 4 : 2;
+                    const p1 = dayPlaces[i-1]; const p2 = dayPlaces[i]; const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
+                    let isActiveSegment = true; if (window.highlightedPlaceId) isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
+                    const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db'; const strokeOpacity = isActiveSegment ? 1.0 : 0.3; const haloOpacity = isActiveSegment ? 0.9 : 0.2; const zIdx = isActiveSegment ? 4 : 2;
 
                     if (tMeta.profile) {
                         const origin = { lat: p1.lat, lng: p1.lng }; const destination = { lat: p2.lat, lng: p2.lng };
@@ -1220,10 +777,7 @@
                                 const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: haloOpacity, map, zIndex: zIdx - 1 });
                                 const line = new google.maps.Polyline({ path, strokeColor: activeSegmentColor, strokeWeight: 4, strokeOpacity: strokeOpacity, map, zIndex: zIdx });
                                 mapLayers.push(halo, line);
-                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
-                                    const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60));
-                                    updateRouteResult(dayIndex, i - 1, p2, avgMin, distKm, transport, false);
-                                }
+                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, i - 1, p2, avgMin, distKm, transport, false); }
                             } else { drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport, isActiveSegment); }
                         });
                     } else { drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport, isActiveSegment); }
@@ -1237,18 +791,15 @@
             mapLayers.push(polyline);
             if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
                 try {
-                    const tMeta = transportMeta[transport] || transportMeta['car']; const distKm = haversineKm(p1.lat, p1.lng, p2.lat, p2.lng);
-                    const avgMin = Math.max(1, Math.round((distKm / (tMeta.speed || 60)) * 60));
+                    const tMeta = transportMeta[transport] || transportMeta['car']; const distKm = haversineKm(p1.lat, p1.lng, p2.lat, p2.lng); const avgMin = Math.max(1, Math.round((distKm / (tMeta.speed || 60)) * 60));
                     updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, true);
                 } catch (e) { const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`); if (resultEl) resultEl.innerHTML = `<span class="text-red-500 font-bold ml-1">계산 오류</span>`; }
             }
         }
 
         (function initPlannerDrag() {
-            const panel = document.getElementById('plannerPanel'); const handle = document.getElementById('dragHandle');
-            const MIN_VH = 60; const MAX_VH = 92;
-            function isMobileLayout() { return window.innerWidth < 768; }
-            function getCurrentHeightVh() { return (panel.getBoundingClientRect().height / window.innerHeight) * 100; }
+            const panel = document.getElementById('plannerPanel'); const handle = document.getElementById('dragHandle'); const MIN_VH = 60; const MAX_VH = 92;
+            function isMobileLayout() { return window.innerWidth < 768; } function getCurrentHeightVh() { return (panel.getBoundingClientRect().height / window.innerHeight) * 100; }
             let startY = 0; let startVh = MIN_VH; let dragging = false;
             function dragStart(clientY) { if (!isMobileLayout()) return; dragging = true; startY = clientY; startVh = getCurrentHeightVh(); }
             function dragMove(clientY) { if (!dragging || !isMobileLayout()) return; const deltaVh = ((startY - clientY) / window.innerHeight) * 100; panel.style.height = Math.max(MIN_VH, Math.min(MAX_VH, startVh + deltaVh)) + 'vh'; }
@@ -1258,7 +809,6 @@
             window.addEventListener('resize', () => { if (!isMobileLayout()) { panel.style.height = ''; return; } if (panel.style.height) panel.style.height = Math.max(MIN_VH, Math.min(MAX_VH, getCurrentHeightVh())) + 'vh'; });
         })();
     </script>
-
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME&libraries=places&language=ko&region=KR&loading=async&callback=initMap" async defer></script>
 </body>
 </html>
