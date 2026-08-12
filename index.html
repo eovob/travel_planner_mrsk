@@ -197,7 +197,6 @@
         let map, placesService; let mapLayers = []; let sortableInstance = null; let latestRenderId = 0; let mapClickMode = false;
         let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
 
-        // 팝업 캐시 데이터 저장소
         window.cachedCategoryStatsHtml = '';
         window.cachedTransportStatsHtml = '';
 
@@ -456,36 +455,46 @@
 
             const avgOverall = ratedCount > 0 ? (totalRating / ratedCount).toFixed(1) : '0.0';
 
-            // 수평나열 세로형 막대그래프(Column Chart) 변환
-            const catRatingHtml = Object.keys(catStats).filter(k => catStats[k].ratedCount > 0).map(k => {
-                const avg = catStats[k].ratingSum / catStats[k].ratedCount;
+            // 1. 카테고리별 평점 (평점 내림차순 정렬)
+            const catRatingData = Object.keys(catStats)
+                .filter(k => catStats[k].ratedCount > 0)
+                .map(k => ({ key: k, avg: catStats[k].ratingSum / catStats[k].ratedCount }))
+                .sort((a, b) => b.avg - a.avg);
+
+            const catRatingHtml = catRatingData.map(data => {
+                const k = data.key;
+                const avg = data.avg;
                 const shortLabel = categories[k].label.replace(/📸|🍽️|🛏️|🚌|⭐|🛍️|📌/g, '').trim();
                 const emoji = categories[k].label.split(' ')[0];
-                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px]">
+                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px] shrink-0">
                     <span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span>
                     <div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div>
                     <span class="text-[10px]" title="${shortLabel}">${emoji}</span>
                 </div>`;
-            }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center">데이터 없음</div>';
+            }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center w-full">데이터 없음</div>';
 
-            const dayRatingHtml = dayStats.map((d, i) => {
-                if (d.ratedCount === 0) return '';
-                const avg = d.ratingSum / d.ratedCount;
-                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px]">
+            // 2. 일정별 평점 (평점 내림차순 정렬)
+            const dayRatingData = dayStats
+                .map((d, i) => ({ dayIndex: i, ratedCount: d.ratedCount, avg: d.ratedCount > 0 ? d.ratingSum / d.ratedCount : 0 }))
+                .filter(d => d.ratedCount > 0)
+                .sort((a, b) => b.avg - a.avg);
+
+            const dayRatingHtml = dayRatingData.map(data => {
+                const avg = data.avg;
+                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px] shrink-0">
                     <span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span>
                     <div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div>
-                    <span class="text-[9px] text-ink-600 font-bold">D${i+1}</span>
+                    <span class="text-[9px] text-ink-600 font-bold">D${data.dayIndex+1}</span>
                 </div>`;
-            }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center">데이터 없음</div>';
+            }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center w-full">데이터 없음</div>';
 
             const catByCount = Object.entries(catStats).filter(([k,v]) => v.count > 0).sort((a,b) => b[1].count - a[1].count);
             const catByCost = Object.entries(catStats).filter(([k,v]) => v.cost > 0).sort((a,b) => b[1].cost - a[1].cost);
             const transArr = Object.entries(transportStats).filter(([k,v]) => v.dist > 0 || v.count > 0).sort((a,b) => b[1].dist - a[1].dist);
 
-            const topCat = catByCount.length > 0 ? categories[catByCount[0][0]].label : '없음';
-            const topTrans = transArr.length > 0 ? transportMeta[transArr[0][0]].label : '없음';
+            const topCat = catByCount.length > 0 ? categories[catByCount[0][0]].label.split(' ')[1] : '없음';
+            const topTrans = transArr.length > 0 ? transportMeta[transArr[0][0]].label.split(' ')[1] : '없음';
 
-            // 팝업 캐시 저장
             window.cachedCategoryStatsHtml = `
                 <div class="p-6 max-h-[85vh] overflow-y-auto">
                     <div class="flex justify-between items-start mb-6 border-b border-sand-100 pb-3">
@@ -693,13 +702,14 @@
                                 <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold transition-colors ring-2 ring-white shadow-md z-10" style="background-color: ${place.visited ? '#B7BEC6' : dayColor}">
                                     ${place.visited ? '✓' : index + 1}
                                 </div>
-                                ${place.rating > 0 ? `<div class="mt-1 text-[9px] md:text-[10px] font-bold text-yellow-500 text-center z-10 opacity-100 drop-shadow-sm whitespace-nowrap leading-none">⭐ ${place.rating}</div>` : ''}
                             </div>
                             <div class="flex-1 flex justify-between items-start overflow-hidden transition-opacity ${place.visited ? 'opacity-40 grayscale' : ''}">
                                 <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
-                                    <div class="text-xs md:text-sm font-bold transition ${place.visited ? 'text-ink-500' : 'text-navy-900 hover:text-coral-600'}">
-                                        ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded-full mr-1 font-semibold" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
-                                        ${place.name} <span class="text-ink-400 font-normal ml-0.5">›</span>
+                                    <div class="text-xs md:text-sm font-bold transition ${place.visited ? 'text-ink-500' : 'text-navy-900 hover:text-coral-600'} flex items-center flex-wrap gap-1">
+                                        ${isAllView ? `<span class="text-[9px] md:text-[10px] text-white px-1.5 py-0.5 rounded-full mr-1 font-semibold leading-none" style="background-color:${dayColor}">Day ${dIdx + 1}</span>` : ''}
+                                        <span class="truncate">${place.name}</span>
+                                        ${place.rating > 0 ? `<span class="text-[11px] md:text-xs font-bold text-yellow-500 whitespace-nowrap ml-1">⭐ ${place.rating}</span>` : ''}
+                                        <span class="text-ink-400 font-normal ml-0.5">›</span>
                                     </div>
                                     <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                                         <select onclick="event.stopPropagation()" onchange="updatePlaceField(${place.id}, 'category', this.value)" class="cat-badge appearance-none outline-none cursor-pointer ${catData.color}">
