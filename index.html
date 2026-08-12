@@ -104,7 +104,8 @@
             </div>
             
             <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b border-sand-200 bg-white flex items-center justify-between">
-                <div id="dayChipsContainer" class="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide"></div>
+                <!-- 가로 스크롤을 위한 mouse-scroll-x 클래스 추가 -->
+                <div id="dayChipsContainer" class="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide mouse-scroll-x"></div>
                 <button onclick="addDay()" class="ml-2 text-xs font-bold text-coral-500 whitespace-nowrap hover:text-coral-600">+ 일자 추가</button>
             </div>
 
@@ -455,37 +456,18 @@
 
             const avgOverall = ratedCount > 0 ? (totalRating / ratedCount).toFixed(1) : '0.0';
 
-            // 1. 카테고리별 평점 (평점 내림차순 정렬)
-            const catRatingData = Object.keys(catStats)
-                .filter(k => catStats[k].ratedCount > 0)
-                .map(k => ({ key: k, avg: catStats[k].ratingSum / catStats[k].ratedCount }))
-                .sort((a, b) => b.avg - a.avg);
-
+            const catRatingData = Object.keys(catStats).filter(k => catStats[k].ratedCount > 0).map(k => ({ key: k, avg: catStats[k].ratingSum / catStats[k].ratedCount })).sort((a, b) => b.avg - a.avg);
             const catRatingHtml = catRatingData.map(data => {
-                const k = data.key;
-                const avg = data.avg;
+                const k = data.key; const avg = data.avg;
                 const shortLabel = categories[k].label.replace(/📸|🍽️|🛏️|🚌|⭐|🛍️|📌/g, '').trim();
                 const emoji = categories[k].label.split(' ')[0];
-                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px] shrink-0">
-                    <span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span>
-                    <div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div>
-                    <span class="text-[10px]" title="${shortLabel}">${emoji}</span>
-                </div>`;
+                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px] shrink-0"><span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span><div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div><span class="text-[10px]" title="${shortLabel}">${emoji}</span></div>`;
             }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center w-full">데이터 없음</div>';
 
-            // 2. 일정별 평점 (평점 내림차순 정렬)
-            const dayRatingData = dayStats
-                .map((d, i) => ({ dayIndex: i, ratedCount: d.ratedCount, avg: d.ratedCount > 0 ? d.ratingSum / d.ratedCount : 0 }))
-                .filter(d => d.ratedCount > 0)
-                .sort((a, b) => b.avg - a.avg);
-
+            const dayRatingData = dayStats.map((d, i) => ({ dayIndex: i, ratedCount: d.ratedCount, avg: d.ratedCount > 0 ? d.ratingSum / d.ratedCount : 0 })).filter(d => d.ratedCount > 0).sort((a, b) => b.avg - a.avg);
             const dayRatingHtml = dayRatingData.map(data => {
                 const avg = data.avg;
-                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px] shrink-0">
-                    <span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span>
-                    <div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div>
-                    <span class="text-[9px] text-ink-600 font-bold">D${data.dayIndex+1}</span>
-                </div>`;
+                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px] shrink-0"><span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span><div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div><span class="text-[9px] text-ink-600 font-bold">D${data.dayIndex+1}</span></div>`;
             }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center w-full">데이터 없음</div>';
 
             const catByCount = Object.entries(catStats).filter(([k,v]) => v.count > 0).sort((a,b) => b[1].count - a[1].count);
@@ -494,6 +476,13 @@
 
             const topCat = catByCount.length > 0 ? categories[catByCount[0][0]].label.split(' ')[1] : '없음';
             const topTrans = transArr.length > 0 ? transportMeta[transArr[0][0]].label.split(' ')[1] : '없음';
+
+            let maxCount = 0, maxDist = 0, maxTime = 0;
+            transArr.forEach(([k, v]) => {
+                if (v.count > maxCount) maxCount = v.count;
+                if (v.dist > maxDist) maxDist = v.dist;
+                if (v.time > maxTime) maxTime = v.time;
+            });
 
             window.cachedCategoryStatsHtml = `
                 <div class="p-6 max-h-[85vh] overflow-y-auto">
@@ -525,16 +514,26 @@
                         <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none">✕</button>
                     </div>
                     <div class="space-y-3">
-                        ${transArr.map(([k, v]) => `
-                            <div class="flex flex-col bg-sand-50 p-3 rounded-lg border border-sand-100 shadow-sm">
-                                <span class="font-bold text-navy-900 text-[13px] mb-2">${transportMeta[k].label}</span>
-                                <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
-                                    <div class="bg-white py-1.5 rounded border border-sand-200"><span class="block text-[9px] text-ink-400 mb-0.5">이동 횟수</span><span class="font-semibold text-ink-700">${v.count}회</span></div>
-                                    <div class="bg-white py-1.5 rounded border border-sand-200"><span class="block text-[9px] text-ink-400 mb-0.5">총 이동거리</span><span class="font-semibold text-ink-700">${v.dist.toFixed(1)}km</span></div>
-                                    <div class="bg-white py-1.5 rounded border border-sand-200"><span class="block text-[9px] text-ink-400 mb-0.5">총 소요시간</span><span class="font-semibold text-ink-700">${formatDurationKorean(v.time)}</span></div>
+                        ${transArr.map(([k, v]) => {
+                            const isMaxCount = (v.count === maxCount && maxCount > 0);
+                            const isMaxDist = (v.dist === maxDist && maxDist > 0);
+                            const isMaxTime = (v.time === maxTime && maxTime > 0);
+
+                            const countCls = isMaxCount ? "bg-coral-50 border-2 border-coral-500 text-coral-600 font-extrabold" : "bg-white border border-sand-200 text-ink-700 font-semibold";
+                            const distCls = isMaxDist ? "bg-coral-50 border-2 border-coral-500 text-coral-600 font-extrabold" : "bg-white border border-sand-200 text-ink-700 font-semibold";
+                            const timeCls = isMaxTime ? "bg-coral-50 border-2 border-coral-500 text-coral-600 font-extrabold" : "bg-white border border-sand-200 text-ink-700 font-semibold";
+
+                            return `
+                                <div class="flex flex-col bg-sand-50 p-3 rounded-lg border border-sand-100 shadow-sm">
+                                    <span class="font-bold text-navy-900 text-[13px] mb-2">${transportMeta[k].label}</span>
+                                    <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
+                                        <div class="${countCls} py-1.5 rounded flex flex-col justify-center"><span class="block text-[9px] text-ink-400 mb-0.5 font-normal">이동 횟수</span><span class="text-[12px]">${v.count}회</span></div>
+                                        <div class="${distCls} py-1.5 rounded flex flex-col justify-center"><span class="block text-[9px] text-ink-400 mb-0.5 font-normal">총 이동거리</span><span class="text-[12px]">${v.dist.toFixed(1)}km</span></div>
+                                        <div class="${timeCls} py-1.5 rounded flex flex-col justify-center"><span class="block text-[9px] text-ink-400 mb-0.5 font-normal">총 소요시간</span><span class="text-[12px]">${formatDurationKorean(v.time)}</span></div>
+                                    </div>
                                 </div>
-                            </div>
-                        `).join('') || '<div class="text-[11px] text-ink-400 text-center">데이터 없음</div>'}
+                            `;
+                        }).join('') || '<div class="text-[11px] text-ink-400 text-center">데이터 없음</div>'}
                     </div>
                 </div>
             `;
@@ -551,11 +550,11 @@
                     <div class="grid grid-cols-2 gap-4 pt-4 border-t border-sand-100">
                         <div>
                             <p class="text-[11px] font-bold text-ink-600 mb-2">카테고리별 평점</p>
-                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide border-b border-sand-100">${catRatingHtml}</div>
+                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide border-b border-sand-100 mouse-scroll-x">${catRatingHtml}</div>
                         </div>
                         <div>
                             <p class="text-[11px] font-bold text-ink-600 mb-2">일정별 평점</p>
-                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide border-b border-sand-100">${dayRatingHtml}</div>
+                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide border-b border-sand-100 mouse-scroll-x">${dayRatingHtml}</div>
                         </div>
                     </div>
                 </div>
@@ -872,6 +871,19 @@
             handle.addEventListener('mousedown', (e) => { dragStart(e.clientY); const onMove = (ev) => dragMove(ev.clientY); const onUp = () => { dragEnd(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }; document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp); });
             window.addEventListener('resize', () => { if (!isMobileLayout()) { panel.style.height = ''; return; } if (panel.style.height) panel.style.height = Math.max(MIN_VH, Math.min(MAX_VH, getCurrentHeightVh())) + 'vh'; });
         })();
+
+        // PC 마우스 휠을 가로 스크롤로 변환하는 이벤트 리스너 추가
+        document.addEventListener('wheel', function(e) {
+            if (e.deltaY === 0) return; // 상하 스크롤 이벤트가 발생했을 때만 처리
+            const container = e.target.closest('.mouse-scroll-x');
+            if (container) {
+                // 해당 컨테이너의 가로 스크롤 가능 여부 확인
+                if (container.scrollWidth > container.clientWidth) {
+                    e.preventDefault(); // 기본 세로 스크롤 동작 방지
+                    container.scrollLeft += e.deltaY;
+                }
+            }
+        }, { passive: false });
     </script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME&libraries=places&language=ko&region=KR&loading=async&callback=initMap" async defer></script>
 </body>
