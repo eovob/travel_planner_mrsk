@@ -35,6 +35,8 @@
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #D9CFC0; border-radius: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .sortable-ghost { opacity: 0.4; background-color: #FFF3EF; }
         .place-item { z-index: 10; position: relative; transition: box-shadow 0.2s ease, transform 0.15s ease; }
         .cat-badge { padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; }
@@ -194,6 +196,10 @@
         let appData = JSON.parse(localStorage.getItem('travelAppMergedFinal')) || defaultSampleData;
         let map, placesService; let mapLayers = []; let sortableInstance = null; let latestRenderId = 0; let mapClickMode = false;
         let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
+
+        // 팝업 캐시 데이터 저장소
+        window.cachedCategoryStatsHtml = '';
+        window.cachedTransportStatsHtml = '';
 
         const GOOGLE_MAPS_API_KEY = 'AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME';
 
@@ -428,7 +434,7 @@
             let totalRating = 0, ratedCount = 0; let totalVisitedCount = 0, totalCost = 0; let totalDist = 0, totalTime = 0;
             let catStats = {}; let dayStats = []; let transportStats = {}; 
             Object.keys(categories).forEach(k => catStats[k] = { count: 0, cost: 0, ratingSum: 0, ratedCount: 0 });
-            Object.keys(transportMeta).forEach(k => transportStats[k] = { dist: 0, time: 0 });
+            Object.keys(transportMeta).forEach(k => transportStats[k] = { count: 0, dist: 0, time: 0 });
 
             trip.days.forEach((day, dIdx) => {
                 let dCount = 0, dCost = 0, dDist = 0, dTime = 0, dRatingSum = 0, dRatedCount = 0;
@@ -437,10 +443,12 @@
                     if (p.visited) { totalVisitedCount++; dCount++; if (catStats[p.category]) catStats[p.category].count++; }
                     let pCost = 0; if (p.cost) { if (p.currency === 'CUSTOM' && p.customRate) pCost = Number(p.cost) * Number(p.customRate); else pCost = Number(p.cost); }
                     totalCost += pCost; dCost += pCost; if (catStats[p.category]) catStats[p.category].cost += pCost;
+                    
                     if (pIdx > 0) {
                         const prev = day[pIdx - 1]; const trans = p.transport || 'car'; const tMeta = transportMeta[trans] || transportMeta['car'];
                         const dist = haversineKm(prev.lat, prev.lng, p.lat, p.lng); const time = Math.max(1, Math.round((dist / (tMeta.speed || 60)) * 60));
-                        totalDist += dist; totalTime += time; dDist += dist; dTime += time; if (transportStats[trans]) { transportStats[trans].dist += dist; transportStats[trans].time += time; }
+                        totalDist += dist; totalTime += time; dDist += dist; dTime += time; 
+                        if (transportStats[trans]) { transportStats[trans].dist += dist; transportStats[trans].time += time; transportStats[trans].count++; }
                     }
                 });
                 dayStats.push({ count: dCount, cost: dCost, dist: dDist, time: dTime, ratingSum: dRatingSum, ratedCount: dRatedCount });
@@ -448,23 +456,83 @@
 
             const avgOverall = ratedCount > 0 ? (totalRating / ratedCount).toFixed(1) : '0.0';
 
+            // 수평나열 세로형 막대그래프(Column Chart) 변환
             const catRatingHtml = Object.keys(catStats).filter(k => catStats[k].ratedCount > 0).map(k => {
                 const avg = catStats[k].ratingSum / catStats[k].ratedCount;
-                return `<div class="flex items-center gap-2 text-[11px]"><span class="w-12 truncate text-ink-600">${categories[k].label}</span><div class="flex-1 bg-sand-100 h-2.5 rounded-full overflow-hidden"><div class="bg-yellow-400 h-full rounded-full" style="width: ${(avg/5)*100}%"></div></div><span class="font-bold text-navy-800 w-6 text-right">${avg.toFixed(1)}</span></div>`;
-            }).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>';
+                const shortLabel = categories[k].label.replace(/📸|🍽️|🛏️|🚌|⭐|🛍️|📌/g, '').trim();
+                const emoji = categories[k].label.split(' ')[0];
+                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px]">
+                    <span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span>
+                    <div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div>
+                    <span class="text-[10px]" title="${shortLabel}">${emoji}</span>
+                </div>`;
+            }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center">데이터 없음</div>';
 
             const dayRatingHtml = dayStats.map((d, i) => {
-                if (d.ratedCount === 0) return ''; const avg = d.ratingSum / d.ratedCount;
-                return `<div class="flex items-center gap-2 text-[11px]"><span class="w-10 text-ink-600">Day ${i+1}</span><div class="flex-1 bg-sand-100 h-2.5 rounded-full overflow-hidden"><div class="bg-yellow-400 h-full rounded-full" style="width: ${(avg/5)*100}%"></div></div><span class="font-bold text-navy-800 w-6 text-right">${avg.toFixed(1)}</span></div>`;
-            }).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>';
+                if (d.ratedCount === 0) return '';
+                const avg = d.ratingSum / d.ratedCount;
+                return `<div class="flex flex-col items-center justify-end h-24 gap-1 min-w-[36px]">
+                    <span class="text-[9px] font-bold text-navy-800">${avg.toFixed(1)}</span>
+                    <div class="w-4 bg-sand-100 rounded-t-sm flex items-end h-16"><div class="w-full bg-yellow-400 rounded-t-sm" style="height: ${(avg/5)*100}%"></div></div>
+                    <span class="text-[9px] text-ink-600 font-bold">D${i+1}</span>
+                </div>`;
+            }).join('') || '<div class="text-[11px] text-ink-400 h-24 flex items-center justify-center">데이터 없음</div>';
 
             const catByCount = Object.entries(catStats).filter(([k,v]) => v.count > 0).sort((a,b) => b[1].count - a[1].count);
             const catByCost = Object.entries(catStats).filter(([k,v]) => v.cost > 0).sort((a,b) => b[1].cost - a[1].cost);
-            const transArr = Object.entries(transportStats).filter(([k,v]) => v.dist > 0).sort((a,b) => b[1].dist - a[1].dist);
-            const maxDist = transArr.length > 0 ? Math.max(...transArr.map(x => x[1].dist)) : 1;
+            const transArr = Object.entries(transportStats).filter(([k,v]) => v.dist > 0 || v.count > 0).sort((a,b) => b[1].dist - a[1].dist);
+
+            const topCat = catByCount.length > 0 ? categories[catByCount[0][0]].label : '없음';
+            const topTrans = transArr.length > 0 ? transportMeta[transArr[0][0]].label : '없음';
+
+            // 팝업 캐시 저장
+            window.cachedCategoryStatsHtml = `
+                <div class="p-6 max-h-[85vh] overflow-y-auto">
+                    <div class="flex justify-between items-start mb-6 border-b border-sand-100 pb-3">
+                        <h2 class="font-extrabold text-navy-900 text-lg">카테고리별 통계</h2>
+                        <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none">✕</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-[11px] font-bold text-ink-500 mb-3 pb-1 border-b border-sand-100">장소 수 기준</p>
+                            <div class="space-y-2">
+                                ${catByCount.map(([k, v]) => `<div class="flex justify-between text-[11px] bg-sand-50 p-2 rounded-lg"><span class="text-ink-700">${categories[k].label}</span><span class="font-bold text-navy-900">${v.count}곳</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-bold text-ink-500 mb-3 pb-1 border-b border-sand-100">예상 비용 기준</p>
+                            <div class="space-y-2">
+                                ${catByCost.map(([k, v]) => `<div class="flex justify-between text-[11px] bg-sand-50 p-2 rounded-lg"><span class="text-ink-700">${categories[k].label}</span><span class="font-bold text-coral-600">₩${v.cost.toLocaleString()}</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            window.cachedTransportStatsHtml = `
+                <div class="p-6 max-h-[85vh] overflow-y-auto">
+                    <div class="flex justify-between items-start mb-6 border-b border-sand-100 pb-3">
+                        <h2 class="font-extrabold text-navy-900 text-lg">이동수단별 통계</h2>
+                        <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none">✕</button>
+                    </div>
+                    <div class="space-y-3">
+                        ${transArr.map(([k, v]) => `
+                            <div class="flex flex-col bg-sand-50 p-3 rounded-lg border border-sand-100 shadow-sm">
+                                <span class="font-bold text-navy-900 text-[13px] mb-2">${transportMeta[k].label}</span>
+                                <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
+                                    <div class="bg-white py-1.5 rounded border border-sand-200"><span class="block text-[9px] text-ink-400 mb-0.5">이동 횟수</span><span class="font-semibold text-ink-700">${v.count}회</span></div>
+                                    <div class="bg-white py-1.5 rounded border border-sand-200"><span class="block text-[9px] text-ink-400 mb-0.5">총 이동거리</span><span class="font-semibold text-ink-700">${v.dist.toFixed(1)}km</span></div>
+                                    <div class="bg-white py-1.5 rounded border border-sand-200"><span class="block text-[9px] text-ink-400 mb-0.5">총 소요시간</span><span class="font-semibold text-ink-700">${formatDurationKorean(v.time)}</span></div>
+                                </div>
+                            </div>
+                        `).join('') || '<div class="text-[11px] text-ink-400 text-center">데이터 없음</div>'}
+                    </div>
+                </div>
+            `;
 
             container.innerHTML = `
                 <h2 class="font-extrabold text-navy-900 text-base md:text-lg mb-2">📊 이번 여행 통계</h2>
+                
                 <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
                     <div class="text-center mb-4">
                         <p class="text-xs font-bold text-ink-500 mb-1">전체 평균 평점</p>
@@ -472,8 +540,14 @@
                         <p class="text-[10px] text-ink-400 mt-1">(${ratedCount}개 장소 평가됨)</p>
                     </div>
                     <div class="grid grid-cols-2 gap-4 pt-4 border-t border-sand-100">
-                        <div><p class="text-[11px] font-bold text-ink-600 mb-2">카테고리별 평점</p><div class="space-y-1.5">${catRatingHtml}</div></div>
-                        <div><p class="text-[11px] font-bold text-ink-600 mb-2">일정별 평점</p><div class="space-y-1.5">${dayRatingHtml}</div></div>
+                        <div>
+                            <p class="text-[11px] font-bold text-ink-600 mb-2">카테고리별 평점</p>
+                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide border-b border-sand-100">${catRatingHtml}</div>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-bold text-ink-600 mb-2">일정별 평점</p>
+                            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide border-b border-sand-100">${dayRatingHtml}</div>
+                        </div>
                     </div>
                 </div>
                 
@@ -489,53 +563,33 @@
 
                 <details class="bg-white p-4 rounded-xl border border-sand-200 shadow-card group">
                     <summary class="cursor-pointer flex justify-between items-center text-[11px] font-bold text-ink-500 list-none outline-none [&::-webkit-details-marker]:hidden">
-                        <span>📅 일자별 요약 (총 ${dayStats.length}일)</span><span class="text-ink-400 transition group-open:rotate-180">▼</span>
+                        <span>📅 일자별 요약 (총 ${dayStats.length}일)</span><span class="text-ink-400 transition transform group-open:rotate-180">▼</span>
                     </summary>
                     <div class="space-y-2 mt-3 pt-3 border-t border-sand-100">
                         ${dayStats.map((d, i) => `
                             <div class="flex justify-between items-center bg-sand-50 p-2 rounded-lg text-[11px]">
                                 <span class="font-bold text-navy-800">Day ${i+1}</span>
-                                <div class="text-right flex gap-3 text-ink-600"><span>📍 ${d.count}곳</span><span class="text-coral-600">₩${d.cost.toLocaleString()}</span><span>${d.dist.toFixed(1)}km</span><span>${formatDurationKorean(d.time)}</span></div>
+                                <div class="text-right flex gap-3 text-ink-600"><span>📍 ${d.count}곳</span><span class="text-coral-600 w-12">₩${d.cost.toLocaleString()}</span><span class="w-10">${d.dist.toFixed(1)}km</span></div>
                             </div>
                         `).join('')}
                     </div>
                 </details>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
-                        <p class="text-[11px] font-bold text-ink-500 mb-3">카테고리별 순위</p>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-[10px] text-ink-400 mb-2 pb-1 border-b border-sand-100">장소 수</p>
-                                <div class="space-y-1.5">
-                                    ${catByCount.map(([k, v]) => `<div class="flex justify-between text-[11px]"><span class="text-ink-700">${categories[k].label}</span><span class="font-semibold text-navy-900">${v.count}곳</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-[10px] text-ink-400 mb-2 pb-1 border-b border-sand-100">예상 비용</p>
-                                <div class="space-y-1.5">
-                                    ${catByCost.map(([k, v]) => `<div class="flex justify-between text-[11px]"><span class="text-ink-700">${categories[k].label}</span><span class="font-semibold text-coral-600">₩${v.cost.toLocaleString()}</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
-                                </div>
-                            </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                    <button onclick="openModal(window.cachedCategoryStatsHtml)" class="w-full bg-white p-4 rounded-xl border border-sand-200 shadow-card flex justify-between items-center hover:bg-sand-50 transition active:scale-[0.98]">
+                        <div class="text-left">
+                            <p class="text-[11px] font-bold text-ink-500">카테고리별 통계</p>
+                            <p class="text-xs font-extrabold text-navy-900 mt-1">(1순위: ${topCat})</p>
                         </div>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
-                        <p class="text-[11px] font-bold text-ink-500 mb-3">이동수단별 통계 (거리 기준)</p>
-                        <div class="space-y-3">
-                            ${transArr.map(([k, v]) => `
-                                <div>
-                                    <div class="flex items-center gap-2 text-[11px] cursor-pointer group" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                                        <span class="w-14 truncate text-ink-700">${transportMeta[k].label}</span>
-                                        <div class="flex-1 bg-sand-100 h-3 rounded overflow-hidden"><div class="bg-navy-400 h-full rounded" style="width: ${(v.dist/maxDist)*100}%"></div></div>
-                                    </div>
-                                    <div class="hidden text-[10px] text-ink-500 text-right mt-1.5 pr-1 bg-sand-50 p-1.5 rounded-lg border border-sand-100 transition-all">
-                                        상세 정보: <span class="text-navy-900 font-semibold">${v.dist.toFixed(1)}km</span> / <span class="text-navy-900 font-semibold">${formatDurationKorean(v.time)}</span>
-                                    </div>
-                                </div>
-                            `).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
+                        <span class="text-ink-400 text-lg">›</span>
+                    </button>
+                    <button onclick="openModal(window.cachedTransportStatsHtml)" class="w-full bg-white p-4 rounded-xl border border-sand-200 shadow-card flex justify-between items-center hover:bg-sand-50 transition active:scale-[0.98]">
+                        <div class="text-left">
+                            <p class="text-[11px] font-bold text-ink-500">이동수단별 통계</p>
+                            <p class="text-xs font-extrabold text-navy-900 mt-1">(1순위: ${topTrans})</p>
                         </div>
-                        <p class="text-[9px] text-ink-400 mt-3 pt-2 border-t border-sand-100 text-right">*막대를 누르면 상세 정보 표시</p>
-                    </div>
+                        <span class="text-ink-400 text-lg">›</span>
+                    </button>
                 </div>
             `;
         }
@@ -635,11 +689,11 @@
                     item.innerHTML = `
                         <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative rounded-t-xl">
                             <div class="text-ink-400 hover:text-ink-600 cursor-grab px-1 mt-1 touch-manipulation flex-shrink-0">⋮⋮</div>
-                            <div class="flex flex-col items-center mx-1 md:mx-2 mt-0.5 w-6 flex-shrink-0">
+                            <div class="flex flex-col items-center mx-1 md:mx-2 mt-0.5 min-w-[24px] flex-shrink-0">
                                 <div onclick="toggleVisited(${place.id})" title="방문 체크" class="cursor-pointer w-5 h-5 md:w-6 md:h-6 rounded-full text-[10px] md:text-[11px] text-white flex items-center justify-center font-bold transition-colors ring-2 ring-white shadow-md z-10" style="background-color: ${place.visited ? '#B7BEC6' : dayColor}">
                                     ${place.visited ? '✓' : index + 1}
                                 </div>
-                                ${place.rating > 0 ? `<div class="mt-1 text-[10px] md:text-[11px] font-bold text-yellow-500 text-center leading-[1.1] z-10 opacity-100 drop-shadow-sm">⭐<br>${place.rating}</div>` : ''}
+                                ${place.rating > 0 ? `<div class="mt-1 text-[9px] md:text-[10px] font-bold text-yellow-500 text-center z-10 opacity-100 drop-shadow-sm whitespace-nowrap leading-none">⭐ ${place.rating}</div>` : ''}
                             </div>
                             <div class="flex-1 flex justify-between items-start overflow-hidden transition-opacity ${place.visited ? 'opacity-40 grayscale' : ''}">
                                 <div class="flex-1 overflow-hidden cursor-pointer pl-1" onclick="toggleDetails(${place.id})">
