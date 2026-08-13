@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>나만의 여행 계획 (Google Maps API)</title>
+    <title>[나만의 여행계획] (Google Maps API)</title>
 
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" as="style" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -71,7 +71,7 @@
             <div class="flex justify-between items-center mb-2 md:mb-3">
                 <h1 class="text-lg md:text-xl font-extrabold flex items-center gap-2 tracking-tight">
                     <span class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-base">✈️</span>
-                    여행 플래너
+                    [나만의 여행계획] <span class="text-sm font-normal opacity-80">@mrsk</span>
                 </h1>
                 <button onclick="createNewTrip()" class="text-xs bg-coral-500 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:bg-coral-600 font-bold transition">+ 새 여행</button>
             </div>
@@ -79,16 +79,21 @@
                 <select id="tripSelect" onchange="changeTrip()" class="flex-1 text-sm bg-white/10 border border-white/10 text-white rounded-lg p-1.5 md:p-2 outline-none cursor-pointer"></select>
                 <button onclick="deleteCurrentTrip()" class="bg-white/10 border border-white/10 p-1.5 md:p-2 rounded-lg hover:bg-red-500/80 transition">🗑️</button>
             </div>
-            <button onclick="openShareModal()" class="w-full text-xs font-semibold bg-white/10 border border-white/10 text-white/90 py-1.5 md:py-2 rounded-lg hover:bg-white/20 transition flex justify-center items-center gap-1.5">
-                📤 내보내기 / 📥 가져오기
-            </button>
+            <div class="flex gap-2 w-full">
+                <button onclick="openShareModal()" class="flex-1 text-xs font-semibold bg-white/10 border border-white/10 text-white/90 py-1.5 md:py-2 rounded-lg hover:bg-white/20 transition flex justify-center items-center gap-1.5">
+                    📤 내보내기 / 📥 가져오기
+                </button>
+                <button onclick="openExchangeModal()" class="w-8 md:w-[38px] bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition flex justify-center items-center text-sm" title="환율 계산기">
+                    💸
+                </button>
+            </div>
         </div>
 
         <div class="flex gap-1 p-1.5 bg-sand-100 border-b border-sand-200 overflow-x-auto scrollbar-hide">
             <button id="tabItineraryBtn" onclick="switchTab('itinerary')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold bg-white text-navy-800 shadow-card whitespace-nowrap">🗺️ 일정</button>
             <button id="tabReservationBtn" onclick="switchTab('reservation')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap">🏨 예약</button>
-            <button id="tabDashboardBtn" onclick="switchTab('dashboard')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap">📊 통계</button>
             <button id="tabChecklistBtn" onclick="switchTab('checklist')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap">✅ 준비물</button>
+            <button id="tabDashboardBtn" onclick="switchTab('dashboard')" class="flex-1 py-2 md:py-2.5 rounded-lg text-[11px] md:text-sm font-bold text-ink-600/60 hover:text-navy-700 whitespace-nowrap">📊 통계</button>
         </div>
 
         <div id="itineraryTab" class="flex-1 flex flex-col overflow-hidden">
@@ -103,10 +108,12 @@
                 </div>
             </div>
             
-            <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b border-sand-200 bg-white flex items-center justify-between">
-                <!-- 가로 스크롤을 위한 mouse-scroll-x 클래스 추가 -->
+            <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b border-sand-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div id="dayChipsContainer" class="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide mouse-scroll-x"></div>
-                <button onclick="addDay()" class="ml-2 text-xs font-bold text-coral-500 whitespace-nowrap hover:text-coral-600">+ 일자 추가</button>
+                <div class="flex items-center gap-2 justify-end">
+                    <button id="foodFilterBtn" onclick="toggleFoodFilter()" class="text-[10px] md:text-xs font-bold px-2 py-1 rounded-md border border-sand-200 text-ink-600 bg-white transition whitespace-nowrap shadow-sm">🍽️ 식당/카페만</button>
+                    <button onclick="addDay()" class="ml-1 text-xs font-bold text-coral-500 whitespace-nowrap hover:text-coral-600">+ 일자 추가</button>
+                </div>
             </div>
 
             <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-sand-50 scroll-smooth" id="currentDayContainer">
@@ -116,8 +123,16 @@
 
         <div id="reservationTab" class="flex-1 overflow-y-auto p-4 md:p-5 bg-sand-50 hidden">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="font-extrabold text-navy-900 text-base md:text-lg">📝 예약 및 바우처</h2>
-                <button onclick="openResModal()" class="text-xs bg-coral-50 text-coral-600 font-bold px-3 py-1.5 rounded-lg hover:bg-coral-100 transition">+ 예약 추가</button>
+                <div class="flex items-center gap-2">
+                    <h2 class="font-extrabold text-navy-900 text-base md:text-lg">📝 예약 및 바우처</h2>
+                    <select id="resFilter" onchange="renderReservations()" class="text-xs bg-white border border-sand-200 rounded px-1.5 py-1 outline-none font-semibold text-navy-800 shadow-sm cursor-pointer">
+                        <option value="all">전체보기</option>
+                        <option value="transport">✈️ 교통</option>
+                        <option value="hotel">🏨 숙소</option>
+                        <option value="other">🎟️ 기타</option>
+                    </select>
+                </div>
+                <button onclick="openResModal()" class="text-xs bg-coral-50 text-coral-600 font-bold px-3 py-1.5 rounded-lg hover:bg-coral-100 transition">+ 추가</button>
             </div>
             <div id="reservationList" class="space-y-3"></div>
         </div>
@@ -197,11 +212,40 @@
         let appData = JSON.parse(localStorage.getItem('travelAppMergedFinal')) || defaultSampleData;
         let map, placesService; let mapLayers = []; let sortableInstance = null; let latestRenderId = 0; let mapClickMode = false;
         let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
+        let showOnlyFood = false; // [수정1] 식당 필터용 상태
 
         window.cachedCategoryStatsHtml = '';
         window.cachedTransportStatsHtml = '';
 
         const GOOGLE_MAPS_API_KEY = 'AIzaSyBd0A0sGcExr8UkA2k6R6GaV0JS2MKgDME';
+
+        // [수정9,10] 환율 캐싱 및 API 연동
+        let exchangeRatesCache = JSON.parse(localStorage.getItem('travelAppRates')) || null;
+        let isFetchingRates = false;
+        
+        async function fetchRates() {
+            // 24시간(86400000ms) 이내의 캐시가 있으면 재사용
+            if (exchangeRatesCache && (Date.now() - exchangeRatesCache.timestamp < 86400000)) {
+                return exchangeRatesCache.rates;
+            }
+            if (isFetchingRates) return null;
+            isFetchingRates = true;
+            try {
+                // KRW 기준 환율을 무료 API로 호출
+                const res = await fetch('https://open.er-api.com/v6/latest/KRW');
+                const data = await res.json();
+                exchangeRatesCache = { timestamp: Date.now(), rates: data.rates };
+                localStorage.setItem('travelAppRates', JSON.stringify(exchangeRatesCache));
+                isFetchingRates = false;
+                return exchangeRatesCache.rates;
+            } catch (e) {
+                console.warn('환율 정보를 가져오지 못했습니다.', e);
+                isFetchingRates = false;
+                return null;
+            }
+        }
+        // 앱 실행 시 환율 정보 초기화
+        fetchRates();
 
         function haversineKm(lat1, lng1, lat2, lng2) {
             const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLng = (lng2 - lng1) * Math.PI / 180;
@@ -258,7 +302,7 @@
         function getCurrentTrip() { return appData.trips.find(t => t.id === appData.currentTripId) || appData.trips[0]; }
         
         function switchTab(tabName) {
-            ['itinerary', 'reservation', 'dashboard', 'checklist'].forEach(tab => {
+            ['itinerary', 'reservation', 'checklist', 'dashboard'].forEach(tab => {
                 const isMatch = tab === tabName;
                 const el = document.getElementById(`${tab}Tab`); if(el) el.classList.toggle('hidden', !isMatch);
                 const btn = document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}Btn`);
@@ -300,6 +344,78 @@
                 <div class="p-6 space-y-4"><h2 class="font-extrabold text-navy-900 text-lg">내보내기 / 가져오기</h2><div class="space-y-2"><button onclick="exportData(true)" class="w-full bg-coral-500 text-white py-2.5 rounded-lg font-bold hover:bg-coral-600 transition">📤 현재 여행만 내보내기</button><button onclick="exportData(false)" class="w-full bg-sand-100 text-navy-800 py-2.5 rounded-lg font-bold hover:bg-sand-200 transition">📦 전체 백업 내보내기</button></div><div class="border-t border-sand-200 pt-4"><label class="text-sm font-bold text-ink-600 block mb-2">가져오기 (.json)</label><input type="file" accept=".json" onchange="importData(event)" class="w-full text-xs"></div><button onclick="closeModal()" class="w-full py-2.5 border border-sand-200 rounded-lg text-sm font-semibold text-ink-600 hover:bg-sand-50 transition mt-2">닫기</button></div>
             `);
         }
+
+        // [수정10] 환율 계산기 모달 기능
+        function openExchangeModal() {
+            openModal(`
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="font-extrabold text-navy-900 text-lg flex items-center gap-2">💸 환율 계산기</h2>
+                        <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
+                    </div>
+                    <div class="bg-sand-50 p-4 rounded-xl border border-sand-200 space-y-4 shadow-inner">
+                        <div class="flex items-center gap-2">
+                            <select id="exTargetCur" onchange="calcExchange()" class="p-2 border border-sand-200 rounded-lg bg-white font-bold text-navy-900 outline-none w-28 shadow-sm">
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (€)</option>
+                                <option value="JPY">JPY (¥)</option>
+                            </select>
+                            <input type="number" id="exTargetVal" oninput="calcExchange(false)" placeholder="외화 금액" class="flex-1 p-2 border border-sand-200 rounded-lg bg-white outline-none shadow-sm text-right">
+                        </div>
+                        <div class="flex justify-center text-ink-400 font-bold text-lg leading-none">↕</div>
+                        <div class="flex items-center gap-2">
+                            <div class="p-2 border border-transparent rounded-lg font-bold text-navy-900 w-28 text-center bg-sand-100 shadow-sm">KRW (₩)</div>
+                            <input type="number" id="exKrwVal" oninput="calcExchange(true)" placeholder="원화 금액" class="flex-1 p-2 border border-sand-200 rounded-lg bg-white outline-none shadow-sm text-right font-bold text-coral-600">
+                        </div>
+                        <p id="exRateInfo" class="text-[11px] text-ink-500 text-center pt-3 border-t border-sand-200 font-semibold"></p>
+                    </div>
+                </div>
+            `);
+            calcExchange(false, true);
+        }
+
+        async function calcExchange(isReverse = false, init = false) {
+            const cur = document.getElementById('exTargetCur').value;
+            const rates = await fetchRates();
+            const infoEl = document.getElementById('exRateInfo');
+            if (!rates || !rates[cur]) {
+                infoEl.textContent = '인터넷 연결을 확인해주세요. 환율 정보를 불러올 수 없습니다.';
+                return;
+            }
+            const rateToKrw = 1 / rates[cur]; 
+            infoEl.textContent = `현재 환율: 1 ${cur} = 약 ${Math.round(rateToKrw).toLocaleString()} 원`;
+            
+            if (init) return;
+            
+            const targetInput = document.getElementById('exTargetVal');
+            const krwInput = document.getElementById('exKrwVal');
+            
+            if (!isReverse) {
+                const val = parseFloat(targetInput.value);
+                krwInput.value = isNaN(val) ? '' : Math.round(val * rateToKrw);
+            } else {
+                const val = parseFloat(krwInput.value);
+                targetInput.value = isNaN(val) ? '' : (val / rateToKrw).toFixed(2);
+            }
+        }
+
+        // [수정9] 통화 변경 시 환율 자동 갱신 함수
+        async function handleCurrencyChange(placeId, val) {
+            const { p } = getPlaceAndDay(placeId);
+            if (!p) return;
+            p.currency = val;
+            if (['USD', 'EUR', 'JPY'].includes(val)) {
+                const rates = await fetchRates();
+                if (rates && rates[val]) {
+                    p.customRate = Math.round(1 / rates[val]);
+                }
+            } else if (val === 'KRW') {
+                p.customRate = '';
+            }
+            saveData();
+            renderUI(true);
+        }
+
         function exportData(currentOnly) {
             let exportObj = currentOnly ? { __type: 'single', trip: getCurrentTrip() } : { __type: 'full', trips: appData.trips };
             const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `여행데이터.json`; a.click();
@@ -368,6 +484,22 @@
             if (mapClickMode) { btn.classList.add('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.remove('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (ON)'; } else { btn.classList.remove('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.add('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (OFF)'; }
         }
 
+        // [수정1] 식당 필터 토글 함수
+        function toggleFoodFilter() {
+            showOnlyFood = !showOnlyFood;
+            const btn = document.getElementById('foodFilterBtn');
+            if (showOnlyFood) {
+                btn.classList.replace('bg-white', 'bg-coral-500');
+                btn.classList.replace('text-ink-600', 'text-white');
+                btn.classList.replace('border-sand-200', 'border-coral-500');
+            } else {
+                btn.classList.replace('bg-coral-500', 'bg-white');
+                btn.classList.replace('text-white', 'text-ink-600');
+                btn.classList.replace('border-coral-500', 'border-sand-200');
+            }
+            renderUI(true);
+        }
+
         function formatDurationKorean(totalMinutes) {
             if (totalMinutes <= 0) return '[0분]';
             const days = Math.floor(totalMinutes / (24 * 60)); const hours = Math.floor((totalMinutes % (24 * 60)) / 60); const minutes = totalMinutes % 60;
@@ -422,12 +554,19 @@
                 e.preventDefault(); const fileInput = document.getElementById('resFileInput');
                 const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', voucher: editing ? editing.voucher : null };
                 if (this.type.value === 'hotel') { const checkIn = this.checkIn.value; const checkOut = this.checkOut.value; data.checkIn = checkIn; data.checkOut = checkOut; data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || ''); } else { data.date = this.date.value.trim(); data.checkIn = ''; data.checkOut = ''; }
-                const saveAndClose = () => { if (editing) Object.assign(editing, data); else trip.reservations.push({ id: Date.now(), ...data }); saveData(); closeModal(); renderUI(true); };
+                const saveAndClose = () => { if (editing) Object.assign(editing, data); else trip.reservations.push({ id: Date.now(), cleared: false, ...data }); saveData(); closeModal(); renderUI(true); };
                 if (fileInput.files && fileInput.files[0]) { const file = fileInput.files[0]; const reader = new FileReader(); reader.onload = (evt) => { data.voucher = { name: file.name, dataUrl: evt.target.result }; saveAndClose(); }; reader.readAsDataURL(file); } else { saveAndClose(); }
             });
         }
         function toggleResFields(type) { document.getElementById('transportTimes').classList.toggle('hidden', type !== 'transport'); document.getElementById('hotelDates').classList.toggle('hidden', type !== 'hotel'); document.getElementById('genericDateWrap').classList.toggle('hidden', type === 'hotel'); }
         function deleteReservation(id) { if(!confirm('이 예약을 삭제할까요?')) return; const trip = getCurrentTrip(); trip.reservations = trip.reservations.filter(r => r.id !== id); trip.days.forEach(d => d.forEach(p => { if(p.linkedResId == id) p.linkedResId = ''; })); saveData(); renderUI(true); }
+
+        // [수정6] 예약 클리어 토글 함수
+        function toggleResClear(id) {
+            const trip = getCurrentTrip();
+            const res = trip.reservations.find(r => r.id === id);
+            if(res) { res.cleared = !res.cleared; saveData(); renderReservations(); }
+        }
 
         function renderDashboard() {
             const trip = getCurrentTrip(); const container = document.getElementById('dashboardTab');
@@ -614,7 +753,7 @@
             let costText = '';
             if (p.cost) {
                 if (!p.currency || p.currency === 'KRW') costText = `${Number(p.cost).toLocaleString()}원`;
-                else if (p.currency === 'CUSTOM') { const rate = p.customRate ? Number(p.customRate) : 0; const converted = Math.round(Number(p.cost) * rate); costText = `${Number(p.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`; } 
+                else if (p.currency === 'CUSTOM' || ['USD', 'EUR', 'JPY'].includes(p.currency)) { const rate = p.customRate ? Number(p.customRate) : 0; const converted = Math.round(Number(p.cost) * rate); costText = `${Number(p.cost).toLocaleString()} (약 ${converted.toLocaleString()}원)`; } 
                 else { const curSym = p.currency === 'USD' ? '$' : p.currency === 'EUR' ? '€' : '¥'; costText = `${curSym}${Number(p.cost).toLocaleString()}`; }
             }
             openModal(`
@@ -633,10 +772,41 @@
         function renderReservations() {
             const trip = getCurrentTrip(); const container = document.getElementById('reservationList'); container.innerHTML = '';
             if(trip.reservations.length === 0) { container.innerHTML = '<div class="text-center text-sm text-ink-400 py-6">등록된 예약이 없습니다.</div>'; return; }
+            
+            // [수정4] 필터 적용 및 [수정6] 클리어 상태에 따른 정렬
+            const filterVal = document.getElementById('resFilter') ? document.getElementById('resFilter').value : 'all';
+            let filtered = trip.reservations;
+            if (filterVal !== 'all') filtered = filtered.filter(r => r.type === filterVal);
+            
+            filtered.sort((a,b) => (a.cleared === b.cleared ? 0 : a.cleared ? 1 : -1));
+
+            if(filtered.length === 0) { container.innerHTML = '<div class="text-center text-sm text-ink-400 py-6">해당 카테고리에 예약이 없습니다.</div>'; return; }
+
             const icons = { transport: '✈️', hotel: '🏨', other: '🎟️' };
-            trip.reservations.forEach(r => {
-                const div = document.createElement('div'); div.className = "bg-white border border-sand-200 p-3 md:p-4 rounded-xl shadow-card hover:shadow-floating transition-shadow";
-                div.innerHTML = `<div class="flex justify-between items-start gap-2"><div class="flex items-start gap-2.5 flex-1 min-w-0"><span class="w-9 h-9 rounded-xl bg-sand-100 flex items-center justify-center text-lg shrink-0">${icons[r.type]}</span><div class="flex-1 min-w-0 pt-0.5"><h3 class="font-bold text-sm text-navy-900 truncate">${r.title}</h3><p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date} ${r.note ? ` · ${r.note}` : ''}</p>${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}</div></div><div class="flex gap-1 shrink-0 mt-0.5"><button onclick="openResModal(${r.id})" class="text-[10px] font-semibold bg-sand-100 text-ink-700 px-2 py-1 rounded-md hover:bg-sand-200 transition">수정</button><button onclick="deleteReservation(${r.id})" class="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button></div></div>${r.voucher ? `<div class="mt-3 pt-2 border-t border-sand-100"><button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">📎 ${r.voucher.name} 보기</button></div>` : ''}`;
+            filtered.forEach(r => {
+                const div = document.createElement('div'); 
+                const clearCls = r.cleared ? 'opacity-50 grayscale bg-sand-50/50' : 'bg-white hover:shadow-floating';
+                div.className = `border border-sand-200 p-3 md:p-4 rounded-xl shadow-card transition-all ${clearCls}`;
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="flex items-start gap-2.5 flex-1 min-w-0">
+                            <button onclick="toggleResClear(${r.id})" class="w-9 h-9 rounded-xl bg-sand-100 hover:bg-sand-200 flex items-center justify-center text-lg shrink-0 transition" title="완료 처리/해제">
+                                ${r.cleared ? '✅' : icons[r.type]}
+                            </button>
+                            <div class="flex-1 min-w-0 pt-0.5">
+                                <h3 class="font-bold text-sm ${r.cleared ? 'text-ink-500 line-through' : 'text-navy-900'} truncate">${r.title}</h3>
+                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date} ${r.note ? ` · ${r.note}` : ''}</p>
+                                ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex gap-1 shrink-0 mt-0.5">
+                            <button onclick="openResModal(${r.id})" class="text-[10px] font-semibold bg-sand-100 text-ink-700 px-2 py-1 rounded-md hover:bg-sand-200 transition">수정</button>
+                            <button onclick="deleteReservation(${r.id})" class="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
+                        </div>
+                    </div>
+                    ${r.voucher ? `<div class="mt-3 pt-2 border-t border-sand-100"><button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">📎 ${r.voucher.name} 보기</button></div>` : ''}
+                `;
                 container.appendChild(div);
             });
         }
@@ -644,12 +814,25 @@
         function addChecklistItem() { const input = document.getElementById('checklistInput'); const text = input.value.trim(); if(!text) return; const trip = getCurrentTrip(); trip.checklists.push({ id: Date.now(), text: text, done: false }); input.value = ''; saveData(); renderChecklist(); }
         function toggleChecklist(id) { const trip = getCurrentTrip(); const item = trip.checklists.find(c => c.id === id); if(item) { item.done = !item.done; saveData(); renderChecklist(); } }
         function deleteChecklist(id) { const trip = getCurrentTrip(); trip.checklists = trip.checklists.filter(c => c.id !== id); saveData(); renderChecklist(); }
+        // [수정3] 체크리스트 텍스트 수정 가능
+        function updateChecklistText(id, newText) {
+            const trip = getCurrentTrip();
+            const item = trip.checklists.find(c => c.id === id);
+            if (item) { item.text = newText; saveData(); }
+        }
+
         function renderChecklist() {
             const trip = getCurrentTrip(); const container = document.getElementById('checklistContainer'); container.innerHTML = '';
             if(!trip.checklists || trip.checklists.length === 0) { container.innerHTML = '<div class="p-4 text-center text-xs text-ink-400">준비물이 없습니다.</div>'; return; }
             trip.checklists.forEach(c => {
                 const div = document.createElement('div'); div.className = "flex items-center justify-between p-3 border-b border-sand-100 last:border-0 hover:bg-sand-50 transition";
-                div.innerHTML = `<label class="flex items-center gap-3 cursor-pointer flex-1"><input type="checkbox" ${c.done ? 'checked' : ''} onchange="toggleChecklist(${c.id})" class="w-4 h-4 accent-coral-500 rounded cursor-pointer"><span class="text-sm ${c.done ? 'line-through text-ink-400' : 'text-ink-700'}">${c.text}</span></label><button onclick="deleteChecklist(${c.id})" class="text-ink-400 hover:text-red-500 font-bold ml-2 transition">✕</button>`;
+                div.innerHTML = `
+                    <label class="flex items-center gap-3 flex-1 min-w-0">
+                        <input type="checkbox" ${c.done ? 'checked' : ''} onchange="toggleChecklist(${c.id})" class="w-4 h-4 accent-coral-500 rounded cursor-pointer">
+                        <input type="text" value="${c.text}" onchange="updateChecklistText(${c.id}, this.value)" class="text-sm bg-transparent border-none outline-none flex-1 truncate ${c.done ? 'line-through text-ink-400' : 'text-ink-700'}">
+                    </label>
+                    <button onclick="deleteChecklist(${c.id})" class="text-ink-400 hover:text-red-500 font-bold ml-2 transition">✕</button>
+                `;
                 container.appendChild(div);
             });
         }
@@ -694,6 +877,11 @@
                     const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
                     const catOptions = [{ val: 'sightseeing', text: '📸 명소' }, { val: 'food', text: '🍽️ 식당' }, { val: 'hotel', text: '🛏️ 숙소' }, { val: 'transport', text: '🚌 교통' }, { val: 'important', text: '⭐ 중요' }, { val: 'shopping', text: '🛍️ 쇼핑' }, { val: 'custom', text: place.category === 'custom' && place.customLabel ? `📌 ${place.customLabel}` : '📌 기타' }].map(o => `<option value="${o.val}" ${place.category === o.val ? 'selected' : ''}>${o.text}</option>`).join('');
 
+                    // [수정1] 식당 필터 활성화 시 식당이 아니면 숨김 처리
+                    if (showOnlyFood && place.category !== 'food') {
+                        item.classList.add('hidden');
+                    }
+
                     item.innerHTML = `
                         <div class="p-2 md:p-2.5 flex justify-between items-start bg-white z-10 relative rounded-t-xl">
                             <div class="text-ink-400 hover:text-ink-600 cursor-grab px-1 mt-1 touch-manipulation flex-shrink-0">⋮⋮</div>
@@ -715,7 +903,7 @@
                                             ${catOptions}
                                         </select>
                                         ${hasRes ? `<button onclick="event.stopPropagation(); viewVoucherModal(${place.linkedResId})" class="cat-badge bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer">🎫 예약/바우처</button>` : ''}
-                                        ${place.memo || place.url || place.cost ? `<button onclick="event.stopPropagation(); openMemoModal(${place.id})" class="cat-badge bg-sand-100 text-ink-600 hover:bg-sand-200 cursor-pointer">📝 정보/메모</button>` : ''}
+                                        ${place.memo || place.url || place.cost ? `<button onclick="event.stopPropagation(); openMemoModal(${place.id})" class="cat-badge bg-sand-100 text-ink-600 hover:bg-sand-200 cursor-pointer">📝 메모</button>` : ''} 
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-1 flex-shrink-0 ml-1 mt-0.5 w-[92px]">
@@ -742,10 +930,14 @@
                                 <div>
                                     <label class="text-[9px] md:text-[10px] font-bold text-ink-500">예상 비용</label>
                                     <div class="flex gap-1 mt-0.5">
-                                        <select onchange="updatePlaceField(${place.id}, 'currency', this.value)" class="p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
-                                            <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option><option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option><option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option><option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option><option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>기타(환율)</option>
+                                        <select onchange="handleCurrencyChange(${place.id}, this.value)" class="p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[9px] md:text-[10px]">
+                                            <option value="KRW" ${!place.currency || place.currency==='KRW'?'selected':''}>KRW(₩)</option>
+                                            <option value="USD" ${place.currency==='USD'?'selected':''}>USD($)</option>
+                                            <option value="EUR" ${place.currency==='EUR'?'selected':''}>EUR(€)</option>
+                                            <option value="JPY" ${place.currency==='JPY'?'selected':''}>JPY(¥)</option>
+                                            <option value="CUSTOM" ${place.currency==='CUSTOM'?'selected':''}>수동입력</option>
                                         </select>
-                                        ${place.currency === 'CUSTOM' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">` : ''}
+                                        ${place.currency && place.currency !== 'KRW' ? `<input type="number" onchange="updatePlaceField(${place.id}, 'customRate', this.value)" value="${place.customRate || ''}" placeholder="환율(원)" class="w-[50px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">` : ''}
                                         <input type="number" onchange="updatePlaceField(${place.id}, 'cost', this.value)" value="${place.cost || ''}" placeholder="금액" class="flex-1 w-[40px] p-1 md:p-1.5 border border-sand-200 rounded bg-white outline-none text-[10px]">
                                     </div>
                                 </div>
@@ -760,6 +952,8 @@
 
                     if (index < dayPlaces.length - 1) {
                         const nextPlace = dayPlaces[index + 1]; const routeInfo = document.createElement('div'); routeInfo.className = "route-connector flex items-center justify-center gap-1 md:gap-1.5 py-1.5 relative z-0";
+                        if (showOnlyFood) routeInfo.classList.add('hidden'); // 필터 시 경로커넥터 숨김
+
                         routeInfo.innerHTML = `
                             <div class="relative z-10 flex items-center gap-1 md:gap-1.5 bg-sand-50 px-1.5 rounded-full">
                                 <select onchange="updatePlaceField(${nextPlace.id}, 'transport', this.value)" class="bg-white border border-sand-200 rounded-full px-2 py-0.5 text-[9px] md:text-[11px] font-bold text-ink-600 outline-none shadow-card cursor-pointer">
@@ -812,6 +1006,9 @@
             mapLayers.forEach(layer => layer.setMap(null)); mapLayers = [];
             const trip = getCurrentTrip(); let allLatLngs = [];
             trip.days.forEach((dayPlaces, dayIndex) => {
+                // [수정2] 선택한 날짜에 해당하는 마커와 선만 보이게 처리
+                if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) return;
+
                 const defaultColor = dayColors[dayIndex % dayColors.length];
                 dayPlaces.forEach((place, pIndex) => {
                     const markerColor = place.visited ? '#9ca3af' : defaultColor; const catIcon = categories[place.category || 'sightseeing'].label.split(' ')[0]; 
@@ -824,6 +1021,9 @@
             if (!preserveView && allLatLngs.length > 0) { if (allLatLngs.length > 1) { const bounds = new google.maps.LatLngBounds(); allLatLngs.forEach(p => bounds.extend(p)); map.fitBounds(bounds, 20); } else { map.panTo(allLatLngs[0]); map.setZoom(14); } }
 
             for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
+                // [수정2] 선택한 날짜에 해당하는 마커와 선만 보이게 처리
+                if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) continue;
+
                 const dayPlaces = trip.days[dayIndex]; const baseColor = dayColors[dayIndex % dayColors.length];
                 for (let i = 1; i < dayPlaces.length; i++) {
                     const p1 = dayPlaces[i-1]; const p2 = dayPlaces[i]; const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
@@ -872,14 +1072,12 @@
             window.addEventListener('resize', () => { if (!isMobileLayout()) { panel.style.height = ''; return; } if (panel.style.height) panel.style.height = Math.max(MIN_VH, Math.min(MAX_VH, getCurrentHeightVh())) + 'vh'; });
         })();
 
-        // PC 마우스 휠을 가로 스크롤로 변환하는 이벤트 리스너 추가
         document.addEventListener('wheel', function(e) {
-            if (e.deltaY === 0) return; // 상하 스크롤 이벤트가 발생했을 때만 처리
+            if (e.deltaY === 0) return;
             const container = e.target.closest('.mouse-scroll-x');
             if (container) {
-                // 해당 컨테이너의 가로 스크롤 가능 여부 확인
                 if (container.scrollWidth > container.clientWidth) {
-                    e.preventDefault(); // 기본 세로 스크롤 동작 방지
+                    e.preventDefault(); 
                     container.scrollLeft += e.deltaY;
                 }
             }
