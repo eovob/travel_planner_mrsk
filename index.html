@@ -304,19 +304,19 @@
             currentTripId: 1, currentDayIndex: 0,
             trips: [
                 {
-                    id: 1, title: '(샘플) 🇹🇷 한국-터키 4박 5일 여행', 
+                    id: 1, title: '(샘플) 🇹🇷 한국-터키 4박 5일 여행', budget: 1500000,
                     days: [
                         [
                             { id: 101, name: '인천국제공항 (ICN)', lat: 37.4602, lng: 126.4407, category: 'transport', customLabel: '', transport: 'car', visited: true, rating: 4, currency: 'KRW', departTime: '16:45', memo: '인천공항 제2터미널. 규모가 엄청 커요! 탑승 시간을 여유롭게 잡아주세요.' },
                             { id: 102, name: '이스탄불 공항 (IST)', lat: 41.2753, lng: 28.7289, category: 'transport', customLabel: '', transport: 'transit', visited: false, rating: 0, currency: 'KRW', departTime: '22:15' },
-                            { id: 103, name: '콘래드 이스탄불 보스포루스', lat: 41.0487, lng: 29.0063, category: 'hotel', customLabel: '', transport: 'car', visited: false, rating: 0, currency: 'KRW', arriveTime: '23:30', memo: '공항에서 우버로 40분 거리로 가까워요.' }
+                            { id: 103, name: '콘래드 이스탄불 보스포루스', lat: 41.0487, lng: 29.0063, category: 'hotel', customLabel: '', transport: 'car', visited: false, rating: 0, currency: 'KRW', arriveTime: '23:30', memo: '공항에서 우버로 40분 거리로 가까워요.', cost: '120000' }
                         ],
                         [
                             { id: 201, name: '콘래드 이스탄불 보스포루스', lat: 41.0487, lng: 29.0063, category: 'hotel', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW', departTime: '10:00' },
                             { id: 202, name: '아야 소피아 (Ayasofya)', lat: 41.0085, lng: 28.9802, category: 'important', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW' },
                             { id: 203, name: '블루 모스크', lat: 41.0054, lng: 28.9768, category: 'sightseeing', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW' },
-                            { id: 204, name: '그랜드 바자르', lat: 41.0108, lng: 28.9680, category: 'shopping', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW' },
-                            { id: 205, name: '누스렛 스테이크하우스', lat: 41.0135, lng: 28.9840, category: 'food', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW', arriveTime: '19:30', memo: '구글지도 꼭 확인해서 가세요!' }
+                            { id: 204, name: '그랜드 바자르', lat: 41.0108, lng: 28.9680, category: 'shopping', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW', cost: '50000' },
+                            { id: 205, name: '누스렛 스테이크하우스', lat: 41.0135, lng: 28.9840, category: 'food', customLabel: '', transport: 'walk', visited: false, rating: 0, currency: 'KRW', arriveTime: '19:30', memo: '구글지도 꼭 확인해서 가세요!', cost: '80000' }
                         ]
                     ], 
                     reservations: [], 
@@ -665,7 +665,7 @@
         }
 
         function changeTrip() { appData.currentTripId = parseInt(document.getElementById('tripSelect').value); appData.currentDayIndex = 0; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); }
-        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
+        function createNewTrip() { const title = prompt("새 여행 이름:"); if(title) { appData.trips.push({id: Date.now(), title, budget: 0, days:[[]], reservations:[], checklists:[]}); appData.currentTripId = appData.trips[appData.trips.length-1].id; appData.currentDayIndex = 0; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
         function deleteCurrentTrip() { if(appData.trips.length > 1 && confirm("삭제하시겠습니까?")) { appData.trips = appData.trips.filter(t=>t.id!==appData.currentTripId); appData.currentTripId = appData.trips[0].id; expandedPlaceIds.clear(); window.highlightedPlaceId = null; saveData(); renderUI(false); } }
         function addDay() { getCurrentTrip().days.push([]); appData.currentDayIndex = getCurrentTrip().days.length - 1; window.highlightedPlaceId = null; saveData(); renderUI(true); }
         function selectDay(idx) { 
@@ -736,10 +736,11 @@
             renderUI(true);
         }
 
+        // 수정됨: 시간 포맷의 대괄호 [] 제거
         function formatDurationKorean(totalMinutes) {
-            if (totalMinutes <= 0) return '[0분]';
+            if (totalMinutes <= 0) return '0분';
             const days = Math.floor(totalMinutes / (24 * 60)); const hours = Math.floor((totalMinutes % (24 * 60)) / 60); const minutes = totalMinutes % 60;
-            let result = []; if (days > 0) result.push(`${days}일`); if (hours > 0) result.push(`${hours}시간`); if (minutes > 0) result.push(`${minutes}분`); return `[${result.join(' ')}]`;
+            let result = []; if (days > 0) result.push(`${days}일`); if (hours > 0) result.push(`${hours}시간`); if (minutes > 0) result.push(`${minutes}분`); return result.join(' ');
         }
 
         function focusPlaceOnMap(placeId) { window.highlightedPlaceId = placeId; const { p } = getPlaceAndDay(placeId); if (p) { map.panTo({ lat: p.lat, lng: p.lng }); map.setZoom(16); } renderMapRoutes(true); }
@@ -831,6 +832,18 @@
             const trip = getCurrentTrip();
             const res = trip.reservations.find(r => r.id === id);
             if(res) { res.cleared = !res.cleared; saveData(); renderReservations(); }
+        }
+
+        // 추가됨: 여행 예산 설정 프롬프트 호출 함수
+        function setBudget() {
+            const trip = getCurrentTrip();
+            const input = prompt("이번 여행의 총 예산을 입력하세요 (숫자만, 단위: 원)\n※ 예산을 지우려면 0 입력", trip.budget || '');
+            if (input !== null) {
+                const num = parseInt(input.replace(/[^0-9]/g, ''), 10);
+                trip.budget = isNaN(num) ? 0 : num;
+                saveData();
+                renderDashboard();
+            }
         }
 
         function renderDashboard() {
@@ -942,6 +955,12 @@
                 </div>
             `;
 
+            // 추가됨: 예산 프로그레스 바 로직 처리
+            const budget = trip.budget || 0;
+            const budgetPercent = budget > 0 ? Math.min(100, (totalCost / budget) * 100) : 0;
+            const overBudget = budget > 0 && totalCost > budget;
+            const progressBarColor = overBudget ? 'bg-red-500' : 'bg-coral-500';
+
             container.innerHTML = `
                 <h2 class="font-extrabold text-navy-900 text-base md:text-lg mb-2">📊 이번 여행 통계</h2>
                 
@@ -963,13 +982,38 @@
                     </div>
                 </div>
                 
+                <!-- 수정됨: 전체 요약 4칸 레이아웃 및 너비 조절 + 예산 프로그레스 바 추가 -->
                 <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
                     <p class="text-[11px] font-bold text-ink-500 mb-3">전체 요약</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-sand-50 p-2 rounded-lg text-center"><p class="text-[10px] text-ink-500">방문한 장소</p><p class="text-sm font-bold text-navy-900">${totalVisitedCount} 곳</p></div>
-                        <div class="bg-sand-50 p-2 rounded-lg text-center"><p class="text-[10px] text-ink-500">총 예상 비용</p><p class="text-sm font-bold text-coral-600">₩${totalCost.toLocaleString()}</p></div>
-                        <div class="bg-sand-50 p-2 rounded-lg text-center"><p class="text-[10px] text-ink-500">총 이동 거리</p><p class="text-sm font-bold text-navy-900">${totalDist.toFixed(1)} km</p></div>
-                        <div class="bg-sand-50 p-2 rounded-lg text-center"><p class="text-[10px] text-ink-500">총 이동 시간</p><p class="text-sm font-bold text-navy-900">${formatDurationKorean(totalTime)}</p></div>
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="col-span-1 bg-sand-50 p-2 rounded-lg text-center flex flex-col justify-center">
+                            <p class="text-[10px] text-ink-500">방문</p>
+                            <p class="text-sm font-bold text-navy-900 leading-tight mt-0.5">${totalVisitedCount}<span class="text-[10px] font-normal">곳</span></p>
+                        </div>
+                        <div class="col-span-3 bg-sand-50 p-2 md:p-2.5 rounded-lg flex flex-col justify-center cursor-pointer hover:bg-sand-100 transition relative" onclick="setBudget()" title="클릭하여 예산 설정">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-[10px] text-ink-500 flex items-center gap-1">총 예상 비용 <span class="bg-white border border-sand-200 text-[8px] px-1 rounded text-ink-400">예산 설정 ✎</span></p>
+                                ${budget > 0 ? `<p class="text-[9px] font-bold ${overBudget ? 'text-red-500' : 'text-coral-500'}">${budgetPercent.toFixed(0)}%</p>` : ``}
+                            </div>
+                            <div class="flex items-baseline gap-1 mb-1.5">
+                                <p class="text-sm font-bold text-coral-600">₩${totalCost.toLocaleString()}</p>
+                                ${budget > 0 ? `<p class="text-[10px] text-ink-400 truncate">/ ₩${budget.toLocaleString()}</p>` : ``}
+                            </div>
+                            <div class="w-full bg-sand-200 rounded-full h-1.5 overflow-hidden flex">
+                                ${budget > 0 
+                                    ? `<div class="${progressBarColor} h-1.5 rounded-full transition-all" style="width: ${budgetPercent}%"></div>` 
+                                    : `<div class="bg-transparent h-1.5"></div>`
+                                }
+                            </div>
+                        </div>
+                        <div class="col-span-2 bg-sand-50 p-2 rounded-lg text-center">
+                            <p class="text-[10px] text-ink-500">총 이동 거리</p>
+                            <p class="text-sm font-bold text-navy-900 mt-0.5">${totalDist.toFixed(1)} km</p>
+                        </div>
+                        <div class="col-span-2 bg-sand-50 p-2 rounded-lg text-center">
+                            <p class="text-[10px] text-ink-500">총 이동 시간</p>
+                            <p class="text-sm font-bold text-navy-900 mt-0.5">${formatDurationKorean(totalTime)}</p>
+                        </div>
                     </div>
                 </div>
 
