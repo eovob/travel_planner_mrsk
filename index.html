@@ -216,7 +216,6 @@
                     <div class="flex-1 relative">
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400 text-sm pointer-events-none">🔍</span>
                         <input type="text" id="searchInput" placeholder="장소 검색" class="w-full pl-7 pr-2 py-1.5 md:py-2 border border-sand-200 rounded-lg text-sm bg-sand-50 focus:outline-none focus:ring-2 focus:ring-coral-400 focus:bg-white transition" onkeypress="if(event.key === 'Enter') searchPlace()">
-                        <!-- 수정됨: 누락되었던 검색 결과창 부활 -->
                         <div id="searchResults" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-sand-200 rounded-xl shadow-floating max-h-60 overflow-y-auto z-[500]"></div>
                     </div>
                     <button onclick="searchPlace()" class="px-2.5 py-1.5 md:py-2 bg-navy-800 text-white rounded-lg text-[11px] md:text-sm font-semibold hover:bg-navy-700 transition">검색</button>
@@ -327,7 +326,7 @@
         };
 
         let appData = JSON.parse(localStorage.getItem('travelAppMergedFinal')) || defaultSampleData;
-        let map, placesService; let mapLayers = []; let sortableInstance = null; let latestRenderId = 0; let mapClickMode = false;
+        let map, placesService; let mapLayers = []; let latestRenderId = 0; let mapClickMode = false;
         let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
         
         let foodFilterState = 0; 
@@ -772,7 +771,6 @@
             resultEl.innerHTML = `${timeStr}<span class="text-navy-900 font-bold ml-1">약 ${finalDurStr}</span> <span class="text-ink-400 text-[10px] ml-0.5">${distText}</span>`;
         }
 
-        // 추가됨: [날짜변경] 토글 기능
         function toggleResDateChange(checked) {
             const input = document.getElementById('resDateChangeInput');
             if (checked) {
@@ -787,7 +785,6 @@
         function openResModal(editId = null) {
             const trip = getCurrentTrip(); const editing = editId ? trip.reservations.find(r => r.id === editId) : null; const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const initialType = editing ? editing.type : 'hotel'; 
             
-            // 수정됨: 교통편 탭에 [날짜변경] 체크박스 및 입력칸 추가
             openModal(`
                 <form id="resForm" class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
@@ -817,7 +814,6 @@
                 </form>
             `);
             
-            // 수정됨: dateChange 데이터 추가 저장
             document.getElementById('resForm').addEventListener('submit', function(e) {
                 e.preventDefault(); const fileInput = document.getElementById('resFileInput');
                 const dateChange = (this.type.value === 'transport' && document.getElementById('resDateChangeCheck').checked) ? document.getElementById('resDateChangeInput').value.trim() : '';
@@ -1010,7 +1006,6 @@
             `;
         }
 
-        // 수정됨: 바우처 팝업에 날짜변경 데이터 표시 추가
         function viewVoucherModal(resId) {
             const trip = getCurrentTrip(); const res = trip.reservations.find(r => r.id == resId); if(!res) return;
             let voucherHtml = `<p class="text-sm text-ink-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
@@ -1057,7 +1052,6 @@
                 const clearCls = r.cleared ? 'opacity-50 grayscale bg-sand-50/50' : 'bg-white hover:shadow-floating';
                 div.className = `border border-sand-200 p-3 md:p-4 rounded-xl shadow-card transition-all ${clearCls}`;
                 
-                // 수정됨: 목록에서도 교통편 시간과 날짜변경 내역이 보이도록 추가
                 let timeStr = '';
                 if (r.type === 'transport' && r.departTime && r.arriveTime) {
                     timeStr = ` | 🕒 ${r.departTime} ~ ${r.arriveTime} <span class="text-coral-600 font-bold">${r.dateChange || ''}</span>`;
@@ -1145,8 +1139,15 @@
             const listEl = document.getElementById('dayList'); listEl.innerHTML = '';
             const renderDayPlaces = (dayPlaces, dIdx, isAllView) => {
                 if (isAllView) {
-                    const divider = document.createElement('div'); divider.className = `day-divider flex items-center w-full py-3 px-2 opacity-80 ${dayPlaces.length === 0 ? 'pb-8' : ''}`; divider.innerHTML = `<div class="flex-1 border-t-2 border-dashed border-sand-200"></div><div class="px-4 text-xs font-bold text-ink-500 bg-sand-100 rounded-full mx-2 border border-sand-200">Day ${dIdx + 1}</div><div class="flex-1 border-t-2 border-dashed border-sand-200"></div>`; listEl.appendChild(divider);
-                    if (dayPlaces.length === 0) { const emptyZone = document.createElement('div'); emptyZone.className = "empty-day-zone h-6 w-full"; listEl.appendChild(emptyZone); }
+                    const divider = document.createElement('div'); divider.className = `day-divider flex items-center w-full pt-4 pb-2 px-2 opacity-80`; divider.innerHTML = `<div class="flex-1 border-t-2 border-dashed border-sand-200"></div><div class="px-4 text-xs font-bold text-ink-500 bg-sand-100 rounded-full mx-2 border border-sand-200">Day ${dIdx + 1}</div><div class="flex-1 border-t-2 border-dashed border-sand-200"></div>`; listEl.appendChild(divider);
+                }
+
+                const zone = document.createElement('div');
+                zone.className = `day-sortable-zone flex flex-col gap-2 w-full transition-all ${dayPlaces.length === 0 ? 'min-h-[50px] bg-sand-100/50 rounded-xl border-2 border-dashed border-sand-200 flex items-center justify-center' : 'min-h-[20px]'}`;
+                zone.setAttribute('data-day', dIdx);
+                
+                if (dayPlaces.length === 0 && isAllView) {
+                    zone.innerHTML = `<span class="text-[11px] text-ink-400 font-medium pointer-events-none">이곳으로 장소를 드래그하세요</span>`;
                 }
 
                 dayPlaces.forEach((place, index) => {
@@ -1228,7 +1229,7 @@
                             <div><label class="text-[9px] md:text-[10px] font-bold text-ink-500">메모</label><textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-sand-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea></div>
                         </div>
                     `;
-                    listEl.appendChild(item);
+                    zone.appendChild(item);
 
                     if (index < dayPlaces.length - 1) {
                         const nextPlace = dayPlaces[index + 1]; const routeInfo = document.createElement('div'); routeInfo.className = "route-connector flex items-center justify-center gap-1 md:gap-1.5 py-1.5 relative z-0";
@@ -1245,35 +1246,46 @@
                                 <span id="route-result-${dIdx}-${index}" class="text-[9px] md:text-[11px] text-ink-500 font-semibold">(계산 중...)</span>
                             </div>
                         `;
-                        listEl.appendChild(routeInfo);
+                        zone.appendChild(routeInfo);
                     }
                 });
+                listEl.appendChild(zone);
             };
 
             if (appData.currentDayIndex === 'all') trip.days.forEach((dayPlaces, dIdx) => renderDayPlaces(dayPlaces, dIdx, true)); else renderDayPlaces(trip.days[appData.currentDayIndex] || [], appData.currentDayIndex, false);
 
-            if(sortableInstance) sortableInstance.destroy();
-            sortableInstance = new Sortable(listEl, {
-                animation: 150, handle: '.cursor-grab', ghostClass: 'sortable-ghost', draggable: '.place-item', delay: 150, delayOnTouchOnly: true,
-                onEnd: function () {
-                    const trip = getCurrentTrip();
-                    if (appData.currentDayIndex === 'all') {
-                        const newDays = []; let currentDayArray = null;
-                        listEl.childNodes.forEach(el => {
-                            if (el.classList && el.classList.contains('day-divider')) { currentDayArray = []; newDays.push(currentDayArray); } 
-                            else if (el.classList && el.classList.contains('place-item')) {
-                                if (!currentDayArray) { currentDayArray = []; newDays.push(currentDayArray); }
-                                const id = parseInt(el.getAttribute('data-id')); let foundPlace = null;
-                                for (const d of trip.days) { const p = d.find(x => x.id === id); if (p) { foundPlace = p; break; } }
-                                if (foundPlace) currentDayArray.push(foundPlace);
-                            }
-                        });
-                        while(newDays.length < trip.days.length) newDays.push([]);
-                        while(newDays.length > trip.days.length) { const extra = newDays.shift(); newDays[0] = [...extra, ...newDays[0]]; }
-                        trip.days = newDays;
-                    } else { const newPlaces = []; listEl.querySelectorAll('.place-item').forEach(el => { const id = parseInt(el.getAttribute('data-id')); newPlaces.push(trip.days[appData.currentDayIndex].find(p => p.id === id)); }); trip.days[appData.currentDayIndex] = newPlaces; }
-                    saveData(); renderUI(true);
-                }
+            if(window.placeSortables) window.placeSortables.forEach(s => s.destroy());
+            window.placeSortables = [];
+            document.querySelectorAll('.day-sortable-zone').forEach(zone => {
+                window.placeSortables.push(new Sortable(zone, {
+                    group: 'sharedPlaces',
+                    animation: 150, handle: '.cursor-grab', ghostClass: 'sortable-ghost', draggable: '.place-item', delay: 150, delayOnTouchOnly: true,
+                    onEnd: function () {
+                        const trip = getCurrentTrip();
+                        if (appData.currentDayIndex === 'all') {
+                            const newDays = [];
+                            document.querySelectorAll('.day-sortable-zone').forEach(z => {
+                                const dayArr = [];
+                                z.querySelectorAll('.place-item').forEach(el => {
+                                    const id = parseInt(el.getAttribute('data-id'));
+                                    let foundPlace = null;
+                                    for (const d of trip.days) { const p = d.find(x => x.id === id); if (p) { foundPlace = p; break; } }
+                                    if (foundPlace) dayArr.push(foundPlace);
+                                });
+                                newDays.push(dayArr);
+                            });
+                            trip.days = newDays;
+                        } else {
+                            const newPlaces = [];
+                            document.querySelector('.day-sortable-zone').querySelectorAll('.place-item').forEach(el => {
+                                const id = parseInt(el.getAttribute('data-id'));
+                                newPlaces.push(trip.days[appData.currentDayIndex].find(p => p.id === id));
+                            });
+                            trip.days[appData.currentDayIndex] = newPlaces;
+                        }
+                        saveData(); renderUI(true);
+                    }
+                }));
             });
             renderMapRoutes(preserveView);
         }
