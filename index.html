@@ -57,10 +57,11 @@
         .modal-card { animation: modalIn 0.18s ease-out; }
         #tripSelect option, .cat-badge option { color: #163A5C; background-color: #ffffff; }
 
+        /* 수정됨: 구글맵 마커 정보창 완벽 제어 (최신 API 대응) */
+        .gm-style-iw-chr { display: none !important; } /* 상단 빈 헤더 영역 강제 삭제 */
         .gm-ui-hover-effect { display: none !important; }
-        .gm-style-iw { padding: 0 !important; border-radius: 8px !important; }
-        .gm-style-iw-d { overflow: hidden !important; }
-        .gm-style-iw-c { padding: 6px 12px !important; min-width: 0 !important; box-shadow: 0 4px 12px rgba(15,39,64,0.15) !important; }
+        .gm-style-iw-c { padding: 8px 12px !important; border-radius: 8px !important; min-width: 0 !important; box-shadow: 0 4px 12px rgba(15,39,64,0.15) !important; }
+        .gm-style-iw-d { padding: 0 !important; overflow: hidden !important; max-height: none !important; }
 
         /* --- 라이트 테마 PDF 인쇄 전용 스타일 --- */
         @media screen {
