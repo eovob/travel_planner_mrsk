@@ -60,8 +60,7 @@
         .gm-ui-hover-effect { display: none !important; }
         .gm-style-iw { padding: 0 !important; border-radius: 8px !important; }
         .gm-style-iw-d { overflow: hidden !important; }
-        /* 수정됨: InfoWindow 기본 패딩 최소화 */
-        .gm-style-iw-c { padding: 6px 12px !important; min-width: 0 !important; }
+        .gm-style-iw-c { padding: 6px 12px !important; min-width: 0 !important; box-shadow: 0 4px 12px rgba(15,39,64,0.15) !important; }
 
         /* --- 라이트 테마 PDF 인쇄 전용 스타일 --- */
         @media screen {
@@ -956,7 +955,6 @@
                 if (v.time > maxTime) maxTime = v.time;
             });
 
-            // 수정됨: 모달 내 버튼의 괄호 제거 (1순위: ...)
             window.cachedCategoryStatsHtml = `
                 <div class="p-6 max-h-[85vh] overflow-y-auto">
                     <div class="flex justify-between items-start mb-6 border-b border-sand-100 pb-3">
@@ -1040,8 +1038,7 @@
                 <div class="bg-white p-4 rounded-xl border border-sand-200 shadow-card">
                     <p class="text-[11px] font-bold text-ink-500 mb-3">전체 요약</p>
                     <div class="grid grid-cols-4 gap-3">
-                        <!-- 수정됨: 방문 섹션 글자 높이 맞춤 (비용 칸과 동일한 플렉스/마진 구조 사용) -->
-                        <div class="col-span-1 bg-sand-50 p-2 md:p-2.5 rounded-lg flex flex-col justify-between">
+                        <div class="col-span-1 bg-sand-50 p-2 md:p-2.5 rounded-lg flex flex-col justify-center">
                             <div class="flex justify-center items-center mb-1">
                                 <p class="text-[10px] text-ink-500 text-center">방문</p>
                             </div>
@@ -1139,14 +1136,13 @@
             `);
         }
 
-        // 수정됨: 특수문자 > 숫자 > 한글 > 외국어 순으로 제목을 정렬하는 로직 추가
         function compareTitles(a, b) {
             const getCharType = (c) => {
                 if (!c) return 5;
-                if (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(c)) return 3; // 한글
-                if (/[a-zA-Z]/.test(c)) return 4; // 외국어(영어 등)
-                if (/[0-9]/.test(c)) return 2; // 숫자
-                return 1; // 특수문자
+                if (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(c)) return 3; 
+                if (/[a-zA-Z]/.test(c)) return 4; 
+                if (/[0-9]/.test(c)) return 2; 
+                return 1; 
             };
             const len = Math.min(a.length, b.length);
             for (let i = 0; i < len; i++) {
@@ -1163,10 +1159,9 @@
             if(trip.reservations.length === 0) { container.innerHTML = '<div class="text-center text-sm text-ink-400 py-6">등록된 예약이 없습니다.</div>'; return; }
             
             const filterVal = document.getElementById('resFilter') ? document.getElementById('resFilter').value : 'all';
-            let filtered = trip.reservations;
+            let filtered = [...trip.reservations];
             if (filterVal !== 'all') filtered = filtered.filter(r => r.type === filterVal);
             
-            // 수정됨: 클리어 상태 확인 후, 제목 순서(커스텀)로 정렬
             filtered.sort((a,b) => {
                 if (a.cleared !== b.cleared) return a.cleared ? 1 : -1;
                 return compareTitles(a.title, b.title);
@@ -1193,7 +1188,10 @@
                             </button>
                             <div class="flex-1 min-w-0 pt-0.5">
                                 <h3 class="font-bold text-sm ${r.cleared ? 'text-ink-500 line-through' : 'text-navy-900'} truncate">${r.title}</h3>
-                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date + timeStr} ${r.note ? ` · ${r.note}` : ''}</p>
+                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">
+                                    ${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : (r.date || '') + timeStr}
+                                    ${r.note ? `<span class="md:block md:mt-1"><span class="md:hidden"> · </span>${r.note}</span>` : ''}
+                                </p>
                                 ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
                             </div>
                         </div>
@@ -1471,9 +1469,8 @@
                     const markerLabel = targetPlace.visited ? '✓' : String(displayItem.originalIndex + 1);
 
                     const uniqueNames = [...new Set(group.map(item => item.place.name))];
-                    const nameHtml = uniqueNames.map(name => `<b style="font-size:13px; font-weight:800; ${activeItems.length === 0 ? 'text-decoration: line-through; color: #9AA5B1;' : 'color: #0F2740;'}">${name}</b>`).join('<br>');
+                    const nameHtml = uniqueNames.map(name => `<span style="font-size:13px; font-weight:800; display:block; line-height:1.2; ${activeItems.length === 0 ? 'text-decoration: line-through; color: #9AA5B1;' : 'color: #0F2740;'}">${name}</span>`).join('');
                     
-                    // 수정됨: 카테고리 텍스트 추출 추가
                     const catLabelText = categories[targetPlace.category || 'sightseeing'].label.split(' ')[1];
 
                     const marker = new google.maps.Marker({ 
@@ -1483,10 +1480,9 @@
                         title: uniqueNames.join(', ')
                     });
                     
-                    // 수정됨: 카테고리명을 상단 빈 여백에 배치
                     const info = new google.maps.InfoWindow({ 
-                        content: `<div style="text-align:center; padding: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center;">
-                                    <span style="font-size: 9px; font-weight: bold; color: #FF6B4A; margin-bottom: 2px;">${catLabelText}</span>
+                        content: `<div style="text-align:center; overflow: hidden; display: flex; flex-direction: column; align-items: center;">
+                                    <span style="font-size: 10px; font-weight: 800; color: #EB5A3C; margin-bottom: 2px;">${catLabelText}</span>
                                     ${nameHtml}
                                   </div>` 
                     });
