@@ -216,6 +216,8 @@
                     <div class="flex-1 relative">
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400 text-sm pointer-events-none">🔍</span>
                         <input type="text" id="searchInput" placeholder="장소 검색" class="w-full pl-7 pr-2 py-1.5 md:py-2 border border-sand-200 rounded-lg text-sm bg-sand-50 focus:outline-none focus:ring-2 focus:ring-coral-400 focus:bg-white transition" onkeypress="if(event.key === 'Enter') searchPlace()">
+                        <!-- 수정됨: 누락되었던 검색 결과창 부활 -->
+                        <div id="searchResults" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-sand-200 rounded-xl shadow-floating max-h-60 overflow-y-auto z-[500]"></div>
                     </div>
                     <button onclick="searchPlace()" class="px-2.5 py-1.5 md:py-2 bg-navy-800 text-white rounded-lg text-[11px] md:text-sm font-semibold hover:bg-navy-700 transition">검색</button>
                     <button id="foodFilterBtn" onclick="toggleFoodFilter()" class="px-2 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition whitespace-nowrap min-w-[72px] bg-white text-ink-600 border border-sand-200 hover:bg-sand-50" title="식당 필터">🍽️ 전체</button>
@@ -270,7 +272,6 @@
         </div>
         <div id="map" class="w-full h-full relative z-0"></div>
         
-        <!-- 수정된 부분: 모바일/PC 좌측 버튼과 수평이 맞도록 위치(top) 재조정 -->
         <div class="absolute top-2 right-2 md:top-4 md:right-4 z-[400] flex flex-col bg-white rounded-[2px] shadow-[0_1px_4px_-1px_rgba(0,0,0,0.3)] w-[34px] md:w-[38px] overflow-hidden">
             <button onclick="map.setZoom(map.getZoom() + 1)" class="w-full h-[34px] md:h-[38px] flex items-center justify-center text-ink-600 hover:text-navy-900 text-lg md:text-xl font-medium bg-white hover:bg-gray-50 transition-colors border-b border-gray-200" title="확대">＋</button>
             <button onclick="map.setZoom(map.getZoom() - 1)" class="w-full h-[34px] md:h-[38px] flex items-center justify-center text-ink-600 hover:text-navy-900 text-xl md:text-2xl font-medium bg-white hover:bg-gray-50 transition-colors border-b border-gray-200" title="축소">－</button>
@@ -771,14 +772,43 @@
             resultEl.innerHTML = `${timeStr}<span class="text-navy-900 font-bold ml-1">약 ${finalDurStr}</span> <span class="text-ink-400 text-[10px] ml-0.5">${distText}</span>`;
         }
 
+        // 추가됨: [날짜변경] 토글 기능
+        function toggleResDateChange(checked) {
+            const input = document.getElementById('resDateChangeInput');
+            if (checked) {
+                input.classList.remove('hidden');
+                input.focus();
+            } else {
+                input.classList.add('hidden');
+                input.value = '';
+            }
+        }
+
         function openResModal(editId = null) {
             const trip = getCurrentTrip(); const editing = editId ? trip.reservations.find(r => r.id === editId) : null; const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const initialType = editing ? editing.type : 'hotel'; 
+            
+            // 수정됨: 교통편 탭에 [날짜변경] 체크박스 및 입력칸 추가
             openModal(`
                 <form id="resForm" class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
                     <div><label class="text-xs font-bold text-ink-600">종류</label><select name="type" onchange="toggleResFields(this.value)" class="${inputCls}"><option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option><option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option><option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option></select></div>
                     <div><label class="text-xs font-bold text-ink-600">제목 (필수)</label><input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="${inputCls}" /></div>
-                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'transport' ? 'hidden' : ''}"><div><label class="text-xs font-bold text-coral-600">출발 시간</label><input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" /></div><div><label class="text-xs font-bold text-coral-600">도착 시간</label><input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" /></div></div>
+                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'transport' ? 'hidden' : ''}">
+                        <div>
+                            <label class="text-xs font-bold text-coral-600">출발 시간</label>
+                            <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" />
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-bold text-coral-600">도착 시간</label>
+                                <label class="flex items-center gap-1 text-[10px] text-ink-500 cursor-pointer">
+                                    <input type="checkbox" id="resDateChangeCheck" onchange="toggleResDateChange(this.checked)" ${editing && editing.dateChange ? 'checked' : ''}> 날짜변경
+                                </label>
+                            </div>
+                            <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" />
+                            <input type="text" id="resDateChangeInput" placeholder="예: (+1)" value="${editing ? (editing.dateChange||'') : ''}" class="w-full border border-sand-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:ring-2 focus:ring-coral-400 transition ${editing && editing.dateChange ? '' : 'hidden'}" />
+                        </div>
+                    </div>
                     <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}"><div><label class="text-xs font-bold text-coral-600">체크인 날짜</label><input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${inputCls}" /></div><div><label class="text-xs font-bold text-coral-600">체크아웃 날짜</label><input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${inputCls}" /></div></div>
                     <div class="grid grid-cols-2 gap-2"><div id="genericDateWrap" class="${initialType === 'hotel' ? 'hidden' : ''}"><label class="text-xs font-bold text-ink-600">일시/날짜</label><input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" /></div><div><label class="text-xs font-bold text-ink-600">링크 (URL)</label><input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="${inputCls}" /></div></div>
                     <div><label class="text-xs font-bold text-ink-600">메모 (예약번호 등)</label><input name="note" value="${editing ? (editing.note||'') : ''}" class="${inputCls}" /></div>
@@ -786,9 +816,13 @@
                     <div class="flex gap-2 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-2.5 rounded-lg border border-sand-200 text-sm font-semibold text-ink-600 hover:bg-sand-50 transition">취소</button><button type="submit" class="flex-1 py-2.5 rounded-lg bg-coral-500 text-white text-sm font-bold hover:bg-coral-600 transition">저장</button></div>
                 </form>
             `);
+            
+            // 수정됨: dateChange 데이터 추가 저장
             document.getElementById('resForm').addEventListener('submit', function(e) {
                 e.preventDefault(); const fileInput = document.getElementById('resFileInput');
-                const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', voucher: editing ? editing.voucher : null };
+                const dateChange = (this.type.value === 'transport' && document.getElementById('resDateChangeCheck').checked) ? document.getElementById('resDateChangeInput').value.trim() : '';
+                const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', dateChange: dateChange, voucher: editing ? editing.voucher : null };
+                
                 if (this.type.value === 'hotel') { const checkIn = this.checkIn.value; const checkOut = this.checkOut.value; data.checkIn = checkIn; data.checkOut = checkOut; data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || ''); } else { data.date = this.date.value.trim(); data.checkIn = ''; data.checkOut = ''; }
                 const saveAndClose = () => { if (editing) Object.assign(editing, data); else trip.reservations.push({ id: Date.now(), cleared: false, ...data }); saveData(); closeModal(); renderUI(true); };
                 if (fileInput.files && fileInput.files[0]) { const file = fileInput.files[0]; const reader = new FileReader(); reader.onload = (evt) => { data.voucher = { name: file.name, dataUrl: evt.target.result }; saveAndClose(); }; reader.readAsDataURL(file); } else { saveAndClose(); }
@@ -976,11 +1010,12 @@
             `;
         }
 
+        // 수정됨: 바우처 팝업에 날짜변경 데이터 표시 추가
         function viewVoucherModal(resId) {
             const trip = getCurrentTrip(); const res = trip.reservations.find(r => r.id == resId); if(!res) return;
             let voucherHtml = `<p class="text-sm text-ink-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
             if (res.voucher) { if (res.voucher.dataUrl.startsWith('data:image')) voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-sand-200" />`; else voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-coral-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`; }
-            openModal(`<div class="p-6"><div class="flex justify-between items-start mb-4"><div class="flex-1 min-w-0 pr-2"><h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2><p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime}</p>` : ''}</div><button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button></div>${voucherHtml}</div>`);
+            openModal(`<div class="p-6"><div class="flex justify-between items-start mb-4"><div class="flex-1 min-w-0 pr-2"><h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2><p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime} <span class="text-red-500">${res.dateChange || ''}</span></p>` : ''}</div><button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button></div>${voucherHtml}</div>`);
         }
 
         function openMemoModal(placeId) {
@@ -1022,6 +1057,12 @@
                 const clearCls = r.cleared ? 'opacity-50 grayscale bg-sand-50/50' : 'bg-white hover:shadow-floating';
                 div.className = `border border-sand-200 p-3 md:p-4 rounded-xl shadow-card transition-all ${clearCls}`;
                 
+                // 수정됨: 목록에서도 교통편 시간과 날짜변경 내역이 보이도록 추가
+                let timeStr = '';
+                if (r.type === 'transport' && r.departTime && r.arriveTime) {
+                    timeStr = ` | 🕒 ${r.departTime} ~ ${r.arriveTime} <span class="text-coral-600 font-bold">${r.dateChange || ''}</span>`;
+                }
+
                 div.innerHTML = `
                     <div class="flex justify-between items-start gap-2">
                         <div class="flex items-start gap-2.5 flex-1 min-w-0">
@@ -1030,7 +1071,7 @@
                             </button>
                             <div class="flex-1 min-w-0 pt-0.5">
                                 <h3 class="font-bold text-sm ${r.cleared ? 'text-ink-500 line-through' : 'text-navy-900'} truncate">${r.title}</h3>
-                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date} ${r.note ? ` · ${r.note}` : ''}</p>
+                                <p class="text-[11px] text-ink-500 mt-0.5 break-words">${r.type === 'hotel' && (r.checkIn || r.checkOut) ? `🛎️ 체크인 ${r.checkIn || '-'} → 체크아웃 ${r.checkOut || '-'}` : r.date + timeStr} ${r.note ? ` · ${r.note}` : ''}</p>
                                 ${r.link ? `<a href="${r.link.startsWith('http') ? r.link : 'https://'+r.link}" target="_blank" class="text-[11px] text-coral-500 hover:underline mt-1 inline-block break-all">🔗 웹사이트 이동</a>` : ''}
                             </div>
                         </div>
