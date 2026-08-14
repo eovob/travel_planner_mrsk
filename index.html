@@ -198,7 +198,7 @@
                     📤 내보내기 / 📥 가져오기
                 </button>
                 <button onclick="openExchangeModal()" class="w-8 md:w-[38px] bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition flex justify-center items-center text-sm" title="환율 계산기">
-                    💸
+                    💵
                 </button>
             </div>
         </div>
@@ -270,7 +270,8 @@
             </button>
         </div>
         <div id="map" class="w-full h-full relative z-0"></div>
-        <div class="absolute top-[90px] right-[10px] z-[400]">
+        <!-- 수정됨: 기본 지도 확대/축소 버튼과 겹치지 않도록 top 위치 조정 -->
+        <div class="absolute top-[130px] md:top-[130px] right-[10px] z-[400]">
             <button onclick="resetMapView()" class="map-fab bg-white w-[34px] h-[34px] md:w-[38px] md:h-[38px] rounded-xl shadow-floating flex items-center justify-center hover:bg-sand-50 text-sm md:text-base border border-sand-200" title="전체 경로 보기">🗺️</button>
         </div>
         <button onclick="findMyLocation()" class="map-fab absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[400] bg-navy-800 w-11 h-11 md:w-12 md:h-12 rounded-full shadow-floating border border-navy-900/20 flex items-center justify-center hover:bg-navy-700 text-lg md:text-xl text-white" title="내 위치 찾기">🎯</button>
@@ -449,7 +450,6 @@
             if (p) { p.visited = true; p.rating = rating; saveData(); renderUI(true); closeModal(); if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard(); }
         }
 
-        // --- 라이트 테마 PDF 인쇄 실행 로직 ---
         function printCustomPDF() {
             const oldContainer = document.getElementById('custom-print-container');
             if (oldContainer) oldContainer.remove();
@@ -470,7 +470,6 @@
                 
                 let pathStr = pathCoords.length > 1 ? `&path=color:0xEB5A3Cff%7Cweight:4%7C${pathCoords.join('%7C')}` : '';
                 
-                // 일반 구글 지도(라이트 테마) 사용
                 let mapUrl = `https://maps.googleapis.com/maps/api/staticmap?size=800x400&scale=2&key=${GOOGLE_MAPS_API_KEY}${markers}${pathStr}`;
 
                 html += `<div class="print-page">`;
@@ -486,7 +485,6 @@
                 
                 html += `<div class="print-timeline">`;
                 day.forEach((p) => {
-                    // 카테고리 라벨 가져오기
                     const catLabel = categories[p.category || 'sightseeing'].label;
                     
                     html += `<div class="print-timeline-item">`;
@@ -495,7 +493,6 @@
                     html += `<span class="cat-label">${catLabel}</span>`;
                     html += `<h3 class="place-name">${p.name}</h3>`;
                     
-                    // 메모가 있을 경우에만 출력 (비용, 링크, 시간 등 제외)
                     if (p.memo) {
                         html += `<p class="memo">${p.memo}</p>`;
                     }
@@ -518,7 +515,8 @@
             setTimeout(() => {
                 window.print();
                 if (btn) {
-                    btn.innerHTML = '🖨️ 깔끔한 라이트 PDF로 저장하기 (타임라인)';
+                    // 수정됨: 버튼 이름 변경
+                    btn.innerHTML = '🖨️ PDF로 저장하기(타임라인)';
                     btn.disabled = false;
                 }
                 setTimeout(() => printContainer.remove(), 1000);
@@ -530,9 +528,9 @@
                 <div class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">내보내기 / 가져오기</h2>
                     <div class="space-y-2">
-                        <!-- 새롭게 짠 디자인 인쇄 버튼 -->
+                        <!-- 수정됨: 버튼 이름 변경 -->
                         <button id="btnPrintCustom" onclick="printCustomPDF()" class="w-full bg-navy-900 text-white py-3 rounded-lg font-bold hover:bg-navy-800 transition shadow-sm">
-                            🖨️ 깔끔한 라이트 PDF로 저장하기 (타임라인)
+                            🖨️ PDF로 저장하기(타임라인)
                         </button>
                         <button onclick="exportData(true)" class="w-full bg-coral-50 text-coral-600 border border-coral-200 py-2.5 rounded-lg font-bold hover:bg-coral-100 transition mt-2">📤 현재 여행만 내보내기 (.json)</button>
                         <button onclick="exportData(false)" class="w-full bg-sand-100 text-navy-800 py-2.5 rounded-lg font-bold hover:bg-sand-200 transition">📦 전체 백업 내보내기 (.json)</button>
@@ -545,39 +543,40 @@
                 </div>
             `);
         }
-        // -----------------------------------------------------------------
 
         function openExchangeModal() {
             openModal(`
                 <div class="p-6">
                     <div class="flex justify-between items-start mb-4">
-                        <h2 class="font-extrabold text-navy-900 text-lg flex items-center gap-2">💸 환율 계산기</h2>
+                        <!-- 수정됨: 타이틀 이모티콘 변경 -->
+                        <h2 class="font-extrabold text-navy-900 text-lg flex items-center gap-2">💵 환율 계산기</h2>
                         <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
                     </div>
-                    <div class="bg-sand-50 p-4 rounded-xl border border-sand-200 space-y-4 shadow-inner">
+                    <div class="bg-sand-50 p-4 rounded-xl border border-sand-200 space-y-4 shadow-inner overflow-hidden">
+                        <!-- 수정됨: 모바일 뷰 넘침 방지를 위해 너비/레이아웃 조정 shrink-0 / min-w-0 추가 -->
                         <div class="flex items-center gap-2">
-                            <select id="exTargetCur" onchange="handleExCurChange()" class="p-2 border border-sand-200 rounded-lg bg-white font-bold text-navy-900 outline-none w-[110px] shadow-sm text-sm">
+                            <select id="exTargetCur" onchange="handleExCurChange()" class="p-2 border border-sand-200 rounded-lg bg-white font-bold text-navy-900 outline-none w-[90px] md:w-[110px] shrink-0 shadow-sm text-sm">
                                 <option value="USD">USD ($)</option>
                                 <option value="EUR">EUR (€)</option>
                                 <option value="JPY">JPY (¥)</option>
                                 <option value="CNY">CNY (¥)</option>
                                 <option value="CUSTOM">수동입력</option>
                             </select>
-                            <input type="number" id="exTargetVal" oninput="calcExchange(false)" placeholder="외화 금액" class="flex-1 p-2 border border-sand-200 rounded-lg bg-white outline-none shadow-sm text-right text-sm">
+                            <input type="number" id="exTargetVal" oninput="calcExchange(false)" placeholder="외화 금액" class="flex-1 min-w-0 p-2 border border-sand-200 rounded-lg bg-white outline-none shadow-sm text-right text-sm">
                         </div>
                         
                         <div id="customRateWrap" class="hidden flex items-center justify-between text-xs bg-white p-2 rounded border border-sand-200">
-                            <span class="font-bold text-ink-600">수동 환율 설정: 1 외화 =</span>
+                            <span class="font-bold text-ink-600">수동 환율: 1 외화 =</span>
                             <div class="flex items-center gap-1">
-                                <input type="number" id="customExRateInput" value="${customExRate}" oninput="updateCustomExRate(this.value)" class="w-20 p-1 border border-sand-200 rounded text-right outline-none">
+                                <input type="number" id="customExRateInput" value="${customExRate}" oninput="updateCustomExRate(this.value)" class="w-16 md:w-20 p-1 border border-sand-200 rounded text-right outline-none min-w-0">
                                 <span class="font-bold text-ink-600">원</span>
                             </div>
                         </div>
 
                         <div class="flex justify-center text-ink-400 font-bold text-lg leading-none">↕</div>
                         <div class="flex items-center gap-2">
-                            <div class="p-2 border border-transparent rounded-lg font-bold text-navy-900 w-[110px] text-center bg-sand-100 shadow-sm text-sm">KRW (₩)</div>
-                            <input type="number" id="exKrwVal" oninput="calcExchange(true)" placeholder="원화 금액" class="flex-1 p-2 border border-sand-200 rounded-lg bg-white outline-none shadow-sm text-right font-bold text-coral-600 text-sm">
+                            <div class="p-2 border border-transparent rounded-lg font-bold text-navy-900 w-[90px] md:w-[110px] shrink-0 text-center bg-sand-100 shadow-sm text-sm">KRW (₩)</div>
+                            <input type="number" id="exKrwVal" oninput="calcExchange(true)" placeholder="원화 금액" class="flex-1 min-w-0 p-2 border border-sand-200 rounded-lg bg-white outline-none shadow-sm text-right font-bold text-coral-600 text-sm">
                         </div>
                         <p id="exRateInfo" class="text-[11px] text-ink-500 text-center pt-3 border-t border-sand-200 font-semibold"></p>
                     </div>
