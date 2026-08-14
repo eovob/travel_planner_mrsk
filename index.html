@@ -219,7 +219,6 @@
                         <div id="searchResults" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-sand-200 rounded-xl shadow-floating max-h-60 overflow-y-auto z-[500]"></div>
                     </div>
                     <button onclick="searchPlace()" class="px-2.5 py-1.5 md:py-2 bg-navy-800 text-white rounded-lg text-[11px] md:text-sm font-semibold hover:bg-navy-700 transition">검색</button>
-                    <!-- 수정됨: 장소 필터 버튼 -->
                     <button id="placeFilterBtn" onclick="togglePlaceFilter()" class="px-2 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition whitespace-nowrap min-w-[72px] bg-white text-ink-600 border border-sand-200 hover:bg-sand-50" title="장소 필터">♾️ 전체</button>
                 </div>
             </div>
@@ -330,8 +329,7 @@
         let map, placesService; let mapLayers = []; let latestRenderId = 0; let mapClickMode = false;
         let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
         
-        // 수정됨: 필터 상태 변수 이름 변경 (0: 전체, 1: 중요, 2: 일정, 3: 식당)
-        let filterState = 0; 
+        let filterState = 0; // 0: 전체, 1: 중요, 2: 일정, 3: 식당
 
         window.cachedCategoryStatsHtml = '';
         window.cachedTransportStatsHtml = '';
@@ -455,6 +453,7 @@
             if (p) { p.visited = true; p.rating = rating; saveData(); renderUI(true); closeModal(); if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard(); }
         }
 
+        // 수정됨: PDF 출력 시에도 필터 상태가 반영되도록 적용
         function printCustomPDF() {
             const oldContainer = document.getElementById('custom-print-container');
             if (oldContainer) oldContainer.remove();
@@ -465,9 +464,14 @@
 
             let html = '';
             trip.days.forEach((day, dIdx) => {
+                let filteredDay = day;
+                if (filterState === 1) filteredDay = day.filter(p => p.category === 'important');
+                else if (filterState === 2) filteredDay = day.filter(p => p.category !== 'food');
+                else if (filterState === 3) filteredDay = day.filter(p => p.category === 'food');
+
                 let markers = '';
                 let pathCoords = [];
-                day.forEach((p, pIdx) => {
+                filteredDay.forEach((p, pIdx) => {
                     let label = pIdx + 1 <= 9 ? pIdx + 1 : '';
                     markers += `&markers=color:red%7Clabel:${label}%7C${p.lat},${p.lng}`;
                     pathCoords.push(`${p.lat},${p.lng}`);
@@ -479,7 +483,7 @@
 
                 html += `<div class="print-page">`;
                 
-                if (day.length > 0) {
+                if (filteredDay.length > 0) {
                     html += `<img src="${mapUrl}" class="print-map-img" />`;
                 } else {
                     html += `<div class="print-map-img" style="background:#F4EFE6; display:flex; align-items:center; justify-content:center; color:#7A8794;">지정된 일정이 없습니다.</div>`;
@@ -489,7 +493,7 @@
                 html += `<h1 class="print-day-title">Day ${String(dIdx + 1).padStart(2, '0')}</h1>`;
                 
                 html += `<div class="print-timeline">`;
-                day.forEach((p) => {
+                filteredDay.forEach((p) => {
                     const catLabel = categories[p.category || 'sightseeing'].label;
                     
                     html += `<div class="print-timeline-item">`;
@@ -719,7 +723,7 @@
             if (mapClickMode) { btn.classList.add('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.remove('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (ON)'; } else { btn.classList.remove('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.add('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (OFF)'; }
         }
 
-        // 수정됨: 장소 필터 토글 기능 (0: 전체, 1: 중요, 2: 일정, 3: 식당)
+        // 필터 상태 변경 시 UI 렌더링 (지도 업데이트 포함)
         function togglePlaceFilter() {
             filterState = (filterState + 1) % 4;
             const btn = document.getElementById('placeFilterBtn');
@@ -1201,7 +1205,6 @@
                     const isExpanded = expandedPlaceIds.has(place.id) ? '' : 'hidden';
                     const catOptions = [{ val: 'sightseeing', text: '📸 명소' }, { val: 'food', text: '🍽️ 식당' }, { val: 'hotel', text: '🛏️ 숙소' }, { val: 'transport', text: '🚌 교통' }, { val: 'important', text: '⭐ 중요' }, { val: 'shopping', text: '🛍️ 쇼핑' }, { val: 'custom', text: place.category === 'custom' && place.customLabel ? `📌 ${place.customLabel}` : '📌 기타' }].map(o => `<option value="${o.val}" ${place.category === o.val ? 'selected' : ''}>${o.text}</option>`).join('');
 
-                    // 수정됨: filterState 로직 적용 (0:전체, 1:중요, 2:일정, 3:식당)
                     let isHidden = false;
                     if (filterState === 1 && place.category !== 'important') isHidden = true;
                     else if (filterState === 2 && place.category === 'food') isHidden = true;
@@ -1283,7 +1286,6 @@
                     if (index < dayPlaces.length - 1) {
                         const nextPlace = dayPlaces[index + 1]; const routeInfo = document.createElement('div'); routeInfo.className = "route-connector flex items-center justify-center gap-1 md:gap-1.5 py-1.5 relative z-0";
                         
-                        // 수정됨: 전체(0)가 아닐 때는 커넥터를 숨김 처리
                         if (filterState !== 0) {
                             routeInfo.classList.add('hidden');
                         }
@@ -1346,15 +1348,22 @@
             return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 14) };
         }
 
+        // 수정됨: 지도에 표시되는 마커 및 연결선을 filterState에 맞게 필터링 적용
         function renderMapRoutes(preserveView = true) {
             const currentRenderId = Date.now(); latestRenderId = currentRenderId;
             mapLayers.forEach(layer => layer.setMap(null)); mapLayers = [];
             const trip = getCurrentTrip(); let allLatLngs = [];
+            
             trip.days.forEach((dayPlaces, dayIndex) => {
                 if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) return;
 
+                let filteredPlaces = dayPlaces;
+                if (filterState === 1) filteredPlaces = dayPlaces.filter(p => p.category === 'important');
+                else if (filterState === 2) filteredPlaces = dayPlaces.filter(p => p.category !== 'food');
+                else if (filterState === 3) filteredPlaces = dayPlaces.filter(p => p.category === 'food');
+
                 const defaultColor = dayColors[dayIndex % dayColors.length];
-                dayPlaces.forEach((place, pIndex) => {
+                filteredPlaces.forEach((place, pIndex) => {
                     const markerColor = place.visited ? '#9ca3af' : defaultColor; const catIcon = categories[place.category || 'sightseeing'].label.split(' ')[0]; 
                     const marker = new google.maps.Marker({ position: { lat: place.lat, lng: place.lng }, map: map, icon: buildMarkerIcon(markerColor, catIcon, place.visited ? '✓' : String(pIndex + 1)), title: place.name });
                     const info = new google.maps.InfoWindow({ content: `<div style="text-align:center;"><b style="font-size:12px; ${place.visited ? 'text-decoration: line-through; color: gray;' : ''}">${place.name}</b><br><span style="font-size:10px;color:gray;">Day ${dayIndex + 1}</span></div>` });
@@ -1367,9 +1376,18 @@
             for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
                 if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) continue;
 
-                const dayPlaces = trip.days[dayIndex]; const baseColor = dayColors[dayIndex % dayColors.length];
-                for (let i = 1; i < dayPlaces.length; i++) {
-                    const p1 = dayPlaces[i-1]; const p2 = dayPlaces[i]; const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
+                const dayPlaces = trip.days[dayIndex];
+                let filteredPlaces = dayPlaces;
+                if (filterState === 1) filteredPlaces = dayPlaces.filter(p => p.category === 'important');
+                else if (filterState === 2) filteredPlaces = dayPlaces.filter(p => p.category !== 'food');
+                else if (filterState === 3) filteredPlaces = dayPlaces.filter(p => p.category === 'food');
+
+                const baseColor = dayColors[dayIndex % dayColors.length];
+                for (let i = 1; i < filteredPlaces.length; i++) {
+                    const p1 = filteredPlaces[i-1]; const p2 = filteredPlaces[i]; 
+                    const originalIndexP1 = dayPlaces.indexOf(p1);
+
+                    const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
                     let isActiveSegment = true; if (window.highlightedPlaceId) isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
                     const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db'; const strokeOpacity = isActiveSegment ? 1.0 : 0.3; const haloOpacity = isActiveSegment ? 0.9 : 0.2; const zIdx = isActiveSegment ? 4 : 2;
 
@@ -1383,10 +1401,10 @@
                                 const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: haloOpacity, map, zIndex: zIdx - 1 });
                                 const line = new google.maps.Polyline({ path, strokeColor: activeSegmentColor, strokeWeight: 4, strokeOpacity: strokeOpacity, map, zIndex: zIdx });
                                 mapLayers.push(halo, line);
-                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, i - 1, p2, avgMin, distKm, transport, false); }
-                            } else { drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport, isActiveSegment); }
+                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, originalIndexP1, p2, avgMin, distKm, transport, false); }
+                            } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
                         });
-                    } else { drawFallback(p1, p2, segmentColor, dayIndex, i - 1, transport, isActiveSegment); }
+                    } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
                 }
             }
         }
