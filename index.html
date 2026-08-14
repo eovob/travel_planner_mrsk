@@ -270,10 +270,14 @@
             </button>
         </div>
         <div id="map" class="w-full h-full relative z-0"></div>
-        <!-- 수정됨: 기본 지도 확대/축소 버튼과 겹치지 않도록 top 위치 조정 -->
-        <div class="absolute top-[130px] md:top-[130px] right-[10px] z-[400]">
-            <button onclick="resetMapView()" class="map-fab bg-white w-[34px] h-[34px] md:w-[38px] md:h-[38px] rounded-xl shadow-floating flex items-center justify-center hover:bg-sand-50 text-sm md:text-base border border-sand-200" title="전체 경로 보기">🗺️</button>
+        
+        <!-- 커스텀 확대/축소/초기화 컨트롤러 -->
+        <div class="absolute top-[80px] md:top-[90px] right-[10px] z-[400] flex flex-col bg-white rounded-[2px] shadow-[0_1px_4px_-1px_rgba(0,0,0,0.3)] w-[40px] overflow-hidden">
+            <button onclick="map.setZoom(map.getZoom() + 1)" class="w-full h-[40px] flex items-center justify-center text-ink-600 hover:text-navy-900 text-xl font-medium bg-white hover:bg-gray-50 transition-colors border-b border-gray-200" title="확대">＋</button>
+            <button onclick="map.setZoom(map.getZoom() - 1)" class="w-full h-[40px] flex items-center justify-center text-ink-600 hover:text-navy-900 text-2xl font-medium bg-white hover:bg-gray-50 transition-colors border-b border-gray-200" title="축소">－</button>
+            <button onclick="resetMapView()" class="w-full h-[40px] flex items-center justify-center text-ink-600 hover:text-navy-900 text-base bg-white hover:bg-gray-50 transition-colors" title="전체 경로 보기">🗺️</button>
         </div>
+
         <button onclick="findMyLocation()" class="map-fab absolute bottom-4 right-4 md:bottom-6 md:right-6 z-[400] bg-navy-800 w-11 h-11 md:w-12 md:h-12 rounded-full shadow-floating border border-navy-900/20 flex items-center justify-center hover:bg-navy-700 text-lg md:text-xl text-white" title="내 위치 찾기">🎯</button>
     </main>
 
@@ -392,7 +396,8 @@
         }
 
         function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), { center: { lat: 37.5665, lng: 126.9780 }, zoom: 3, maxZoom: 19, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP }, gestureHandling: 'greedy', clickableIcons: false });
+            // 변경됨: 기본 zoomControl 끄기 (직접 만든 3단 버튼 사용을 위해)
+            map = new google.maps.Map(document.getElementById('map'), { center: { lat: 37.5665, lng: 126.9780 }, zoom: 3, maxZoom: 19, disableDefaultUI: true, zoomControl: false, gestureHandling: 'greedy', clickableIcons: false });
             placesService = new google.maps.places.PlacesService(map);
             map.addListener('click', (e) => {
                 if (!mapClickMode) return;
@@ -515,7 +520,6 @@
             setTimeout(() => {
                 window.print();
                 if (btn) {
-                    // 수정됨: 버튼 이름 변경
                     btn.innerHTML = '🖨️ PDF로 저장하기(타임라인)';
                     btn.disabled = false;
                 }
@@ -528,7 +532,6 @@
                 <div class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">내보내기 / 가져오기</h2>
                     <div class="space-y-2">
-                        <!-- 수정됨: 버튼 이름 변경 -->
                         <button id="btnPrintCustom" onclick="printCustomPDF()" class="w-full bg-navy-900 text-white py-3 rounded-lg font-bold hover:bg-navy-800 transition shadow-sm">
                             🖨️ PDF로 저장하기(타임라인)
                         </button>
@@ -548,12 +551,10 @@
             openModal(`
                 <div class="p-6">
                     <div class="flex justify-between items-start mb-4">
-                        <!-- 수정됨: 타이틀 이모티콘 변경 -->
                         <h2 class="font-extrabold text-navy-900 text-lg flex items-center gap-2">💵 환율 계산기</h2>
                         <button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button>
                     </div>
                     <div class="bg-sand-50 p-4 rounded-xl border border-sand-200 space-y-4 shadow-inner overflow-hidden">
-                        <!-- 수정됨: 모바일 뷰 넘침 방지를 위해 너비/레이아웃 조정 shrink-0 / min-w-0 추가 -->
                         <div class="flex items-center gap-2">
                             <select id="exTargetCur" onchange="handleExCurChange()" class="p-2 border border-sand-200 rounded-lg bg-white font-bold text-navy-900 outline-none w-[90px] md:w-[110px] shrink-0 shadow-sm text-sm">
                                 <option value="USD">USD ($)</option>
