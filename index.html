@@ -453,7 +453,6 @@
             if (p) { p.visited = true; p.rating = rating; saveData(); renderUI(true); closeModal(); if (!document.getElementById('dashboardTab').classList.contains('hidden')) renderDashboard(); }
         }
 
-        // 수정됨: PDF 출력 시에도 필터 상태가 반영되도록 적용
         function printCustomPDF() {
             const oldContainer = document.getElementById('custom-print-container');
             if (oldContainer) oldContainer.remove();
@@ -723,7 +722,6 @@
             if (mapClickMode) { btn.classList.add('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.remove('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (ON)'; } else { btn.classList.remove('bg-coral-500', 'text-white', 'border-coral-500'); btn.classList.add('bg-white', 'text-navy-800', 'border-sand-200'); span.textContent = '지도 클릭으로 장소 추가 (OFF)'; }
         }
 
-        // 필터 상태 변경 시 UI 렌더링 (지도 업데이트 포함)
         function togglePlaceFilter() {
             filterState = (filterState + 1) % 4;
             const btn = document.getElementById('placeFilterBtn');
@@ -1342,13 +1340,18 @@
             renderMapRoutes(preserveView);
         }
 
-        function buildMarkerIcon(color, catIcon, label) {
-            const safeIcon = catIcon || '📍';
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2"/><text x="14" y="12" font-size="7" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Arial, sans-serif">${safeIcon}</text><text x="14" y="20" font-size="9" font-weight="bold" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Arial, sans-serif">${label}</text></svg>`;
+        // 수정됨: 마커 디자인 (이모티콘 제거, 텍스트 중앙 정렬, 중요 카테고리 강조)
+        function buildMarkerIcon(color, label, isImportant) {
+            const strokeColor = isImportant ? '#EF4444' : 'white';
+            const strokeWidth = isImportant ? '3' : '2';
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
+                <circle cx="14" cy="14" r="12" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                <text x="14" y="15" font-size="12" font-weight="bold" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Arial, sans-serif">${label}</text>
+            </svg>`;
             return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 14) };
         }
 
-        // 수정됨: 지도에 표시되는 마커 및 연결선을 filterState에 맞게 필터링 적용
+        // 수정됨: 마커 필터링 및 경로선 표시 분기 로직
         function renderMapRoutes(preserveView = true) {
             const currentRenderId = Date.now(); latestRenderId = currentRenderId;
             mapLayers.forEach(layer => layer.setMap(null)); mapLayers = [];
@@ -1363,9 +1366,15 @@
                 else if (filterState === 3) filteredPlaces = dayPlaces.filter(p => p.category === 'food');
 
                 const defaultColor = dayColors[dayIndex % dayColors.length];
-                filteredPlaces.forEach((place, pIndex) => {
-                    const markerColor = place.visited ? '#9ca3af' : defaultColor; const catIcon = categories[place.category || 'sightseeing'].label.split(' ')[0]; 
-                    const marker = new google.maps.Marker({ position: { lat: place.lat, lng: place.lng }, map: map, icon: buildMarkerIcon(markerColor, catIcon, place.visited ? '✓' : String(pIndex + 1)), title: place.name });
+                filteredPlaces.forEach((place) => {
+                    const markerColor = place.visited ? '#9ca3af' : defaultColor; 
+                    const isImportant = place.category === 'important';
+                    
+                    // 필터링된 상태에서도 원래의 순서(Day 기준) 번호 유지
+                    const originalIndex = dayPlaces.findIndex(p => p.id === place.id);
+                    const markerLabel = place.visited ? '✓' : String(originalIndex + 1);
+
+                    const marker = new google.maps.Marker({ position: { lat: place.lat, lng: place.lng }, map: map, icon: buildMarkerIcon(markerColor, markerLabel, isImportant), title: place.name });
                     const info = new google.maps.InfoWindow({ content: `<div style="text-align:center;"><b style="font-size:12px; ${place.visited ? 'text-decoration: line-through; color: gray;' : ''}">${place.name}</b><br><span style="font-size:10px;color:gray;">Day ${dayIndex + 1}</span></div>` });
                     marker.addListener('click', () => info.open(map, marker));
                     mapLayers.push(marker); allLatLngs.push({ lat: place.lat, lng: place.lng });
@@ -1373,38 +1382,36 @@
             });
             if (!preserveView && allLatLngs.length > 0) { if (allLatLngs.length > 1) { const bounds = new google.maps.LatLngBounds(); allLatLngs.forEach(p => bounds.extend(p)); map.fitBounds(bounds, 20); } else { map.panTo(allLatLngs[0]); map.setZoom(14); } }
 
-            for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
-                if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) continue;
+            // 옵션 A: 전체 필터(0)일 때만 경로선을 그립니다.
+            if (filterState === 0) {
+                for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
+                    if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) continue;
 
-                const dayPlaces = trip.days[dayIndex];
-                let filteredPlaces = dayPlaces;
-                if (filterState === 1) filteredPlaces = dayPlaces.filter(p => p.category === 'important');
-                else if (filterState === 2) filteredPlaces = dayPlaces.filter(p => p.category !== 'food');
-                else if (filterState === 3) filteredPlaces = dayPlaces.filter(p => p.category === 'food');
+                    const dayPlaces = trip.days[dayIndex];
+                    const baseColor = dayColors[dayIndex % dayColors.length];
+                    for (let i = 1; i < dayPlaces.length; i++) {
+                        const p1 = dayPlaces[i-1]; const p2 = dayPlaces[i]; 
+                        const originalIndexP1 = i - 1;
 
-                const baseColor = dayColors[dayIndex % dayColors.length];
-                for (let i = 1; i < filteredPlaces.length; i++) {
-                    const p1 = filteredPlaces[i-1]; const p2 = filteredPlaces[i]; 
-                    const originalIndexP1 = dayPlaces.indexOf(p1);
+                        const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
+                        let isActiveSegment = true; if (window.highlightedPlaceId) isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
+                        const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db'; const strokeOpacity = isActiveSegment ? 1.0 : 0.3; const haloOpacity = isActiveSegment ? 0.9 : 0.2; const zIdx = isActiveSegment ? 4 : 2;
 
-                    const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
-                    let isActiveSegment = true; if (window.highlightedPlaceId) isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
-                    const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db'; const strokeOpacity = isActiveSegment ? 1.0 : 0.3; const haloOpacity = isActiveSegment ? 0.9 : 0.2; const zIdx = isActiveSegment ? 4 : 2;
-
-                    if (tMeta.profile) {
-                        const origin = { lat: p1.lat, lng: p1.lng }; const destination = { lat: p2.lat, lng: p2.lng };
-                        const cacheKey = `${tMeta.profile}:${p1.lat.toFixed(5)},${p1.lng.toFixed(5)}-${p2.lat.toFixed(5)},${p2.lng.toFixed(5)}`;
-                        queueRoutesApiRequest(origin, destination, tMeta.profile, cacheKey).then(route => {
-                            if (latestRenderId !== currentRenderId) return;
-                            if (route && route.polyline && route.polyline.encodedPolyline) {
-                                const path = decodePolyline(route.polyline.encodedPolyline);
-                                const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: haloOpacity, map, zIndex: zIdx - 1 });
-                                const line = new google.maps.Polyline({ path, strokeColor: activeSegmentColor, strokeWeight: 4, strokeOpacity: strokeOpacity, map, zIndex: zIdx });
-                                mapLayers.push(halo, line);
-                                if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, originalIndexP1, p2, avgMin, distKm, transport, false); }
-                            } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
-                        });
-                    } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
+                        if (tMeta.profile) {
+                            const origin = { lat: p1.lat, lng: p1.lng }; const destination = { lat: p2.lat, lng: p2.lng };
+                            const cacheKey = `${tMeta.profile}:${p1.lat.toFixed(5)},${p1.lng.toFixed(5)}-${p2.lat.toFixed(5)},${p2.lng.toFixed(5)}`;
+                            queueRoutesApiRequest(origin, destination, tMeta.profile, cacheKey).then(route => {
+                                if (latestRenderId !== currentRenderId) return;
+                                if (route && route.polyline && route.polyline.encodedPolyline) {
+                                    const path = decodePolyline(route.polyline.encodedPolyline);
+                                    const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: haloOpacity, map, zIndex: zIdx - 1 });
+                                    const line = new google.maps.Polyline({ path, strokeColor: activeSegmentColor, strokeWeight: 4, strokeOpacity: strokeOpacity, map, zIndex: zIdx });
+                                    mapLayers.push(halo, line);
+                                    if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, originalIndexP1, p2, avgMin, distKm, transport, false); }
+                                } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
+                            });
+                        } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
+                    }
                 }
             }
         }
