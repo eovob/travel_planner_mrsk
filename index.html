@@ -57,6 +57,11 @@
         .modal-card { animation: modalIn 0.18s ease-out; }
         #tripSelect option, .cat-badge option { color: #163A5C; background-color: #ffffff; }
 
+        /* 수정됨: 구글 맵 InfoWindow의 기본 X(닫기) 버튼 강제 숨김 */
+        .gm-ui-hover-effect { display: none !important; }
+        .gm-style-iw { padding: 0 !important; border-radius: 8px !important; }
+        .gm-style-iw-d { overflow: hidden !important; }
+
         /* --- 라이트 테마 PDF 인쇄 전용 스타일 --- */
         @media screen {
             #custom-print-container { display: none !important; }
@@ -329,7 +334,8 @@
         let map, placesService; let mapLayers = []; let latestRenderId = 0; let mapClickMode = false;
         let expandedPlaceIds = new Set(); window.highlightedPlaceId = null; 
         
-        let filterState = 0; // 0: 전체, 1: 중요, 2: 일정, 3: 식당
+        let filterState = 0; 
+        window.activeInfoWindow = null; // 현재 열려있는 InfoWindow 객체를 저장
 
         window.cachedCategoryStatsHtml = '';
         window.cachedTransportStatsHtml = '';
@@ -397,8 +403,27 @@
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), { center: { lat: 37.5665, lng: 126.9780 }, zoom: 3, maxZoom: 19, disableDefaultUI: true, zoomControl: false, gestureHandling: 'greedy', clickableIcons: false });
             placesService = new google.maps.places.PlacesService(map);
+            
+            // 수정됨: 지도 배경 클릭 시 하이라이트(포커스) 해제 및 InfoWindow 닫기
             map.addListener('click', (e) => {
+                let needsRender = false;
+                
+                if (window.activeInfoWindow) {
+                    window.activeInfoWindow.close();
+                    window.activeInfoWindow = null;
+                }
+                
+                if (window.highlightedPlaceId) {
+                    window.highlightedPlaceId = null;
+                    needsRender = true;
+                }
+                
+                if (needsRender) {
+                    renderMapRoutes(true); // 강조가 해제되었으므로 모든 선 다시 그리기
+                }
+
                 if (!mapClickMode) return;
+                
                 const placeName = prompt("이 장소의 이름을 입력하세요:", "새로운 장소");
                 if (placeName) {
                     let targetDayIdx = appData.currentDayIndex === 'all' ? getCurrentTrip().days.length - 1 : appData.currentDayIndex;
@@ -470,13 +495,15 @@
 
                 let markers = '';
                 let pathCoords = [];
-                filteredDay.forEach((p, pIdx) => {
-                    let label = pIdx + 1 <= 9 ? pIdx + 1 : '';
+                filteredDay.forEach((p) => {
+                    const originalIndex = day.findIndex(op => op.id === p.id);
+                    let label = originalIndex + 1 <= 9 ? originalIndex + 1 : '';
                     markers += `&markers=color:red%7Clabel:${label}%7C${p.lat},${p.lng}`;
                     pathCoords.push(`${p.lat},${p.lng}`);
                 });
                 
-                let pathStr = pathCoords.length > 1 ? `&path=color:0xEB5A3Cff%7Cweight:4%7C${pathCoords.join('%7C')}` : '';
+                // 수정됨: PDF에서도 전체(0)일 때만 경로선 출력
+                let pathStr = (filterState === 0 && pathCoords.length > 1) ? `&path=color:0xEB5A3Cff%7Cweight:4%7C${pathCoords.join('%7C')}` : '';
                 
                 let mapUrl = `https://maps.googleapis.com/maps/api/staticmap?size=800x400&scale=2&key=${GOOGLE_MAPS_API_KEY}${markers}${pathStr}`;
 
@@ -749,7 +776,15 @@
             let result = []; if (days > 0) result.push(`${days}일`); if (hours > 0) result.push(`${hours}시간`); if (minutes > 0) result.push(`${minutes}분`); return result.join(' ');
         }
 
-        function focusPlaceOnMap(placeId) { window.highlightedPlaceId = placeId; const { p } = getPlaceAndDay(placeId); if (p) { map.panTo({ lat: p.lat, lng: p.lng }); map.setZoom(16); } renderMapRoutes(true); }
+        function focusPlaceOnMap(placeId) { 
+            window.highlightedPlaceId = placeId; 
+            const { p } = getPlaceAndDay(placeId); 
+            if (p) { 
+                map.panTo({ lat: p.lat, lng: p.lng }); 
+                map.setZoom(16); 
+            } 
+            renderMapRoutes(true); 
+        }
         function buildDirectionsUrl(p) { if (p.googlePlaceId) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}&query_place_id=${p.googlePlaceId}`; return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`; }
         function resetMapView() {
             window.highlightedPlaceId = null; const trip = getCurrentTrip(); let allLatLngs = [];
@@ -1340,7 +1375,7 @@
             renderMapRoutes(preserveView);
         }
 
-        // 수정됨: 마커 디자인 (이모티콘 제거, 텍스트 중앙 정렬, 중요 카테고리 강조)
+        // 수정됨: 마커 이모티콘 제거 및 넘버링 중앙 배치, 중요 마커 빨간 테두리 적용
         function buildMarkerIcon(color, label, isImportant) {
             const strokeColor = isImportant ? '#EF4444' : 'white';
             const strokeWidth = isImportant ? '3' : '2';
@@ -1351,7 +1386,7 @@
             return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 14) };
         }
 
-        // 수정됨: 마커 필터링 및 경로선 표시 분기 로직
+        // 수정됨: 필터 적용 시의 마커 및 경로 렌더링 수정 (옵션 A)
         function renderMapRoutes(preserveView = true) {
             const currentRenderId = Date.now(); latestRenderId = currentRenderId;
             mapLayers.forEach(layer => layer.setMap(null)); mapLayers = [];
@@ -1369,33 +1404,66 @@
                 filteredPlaces.forEach((place) => {
                     const markerColor = place.visited ? '#9ca3af' : defaultColor; 
                     const isImportant = place.category === 'important';
-                    
-                    // 필터링된 상태에서도 원래의 순서(Day 기준) 번호 유지
                     const originalIndex = dayPlaces.findIndex(p => p.id === place.id);
                     const markerLabel = place.visited ? '✓' : String(originalIndex + 1);
 
-                    const marker = new google.maps.Marker({ position: { lat: place.lat, lng: place.lng }, map: map, icon: buildMarkerIcon(markerColor, markerLabel, isImportant), title: place.name });
-                    const info = new google.maps.InfoWindow({ content: `<div style="text-align:center;"><b style="font-size:12px; ${place.visited ? 'text-decoration: line-through; color: gray;' : ''}">${place.name}</b><br><span style="font-size:10px;color:gray;">Day ${dayIndex + 1}</span></div>` });
-                    marker.addListener('click', () => info.open(map, marker));
+                    const marker = new google.maps.Marker({ 
+                        position: { lat: place.lat, lng: place.lng }, 
+                        map: map, 
+                        icon: buildMarkerIcon(markerColor, markerLabel, isImportant), 
+                        title: place.name 
+                    });
+                    
+                    const info = new google.maps.InfoWindow({ 
+                        content: `<div style="text-align:center; padding: 2px 4px; overflow: hidden;"><b style="font-size:13px; font-weight:800; ${place.visited ? 'text-decoration: line-through; color: #9AA5B1;' : 'color: #0F2740;'}">${place.name}</b></div>` 
+                    });
+                    
+                    marker.addListener('click', () => {
+                        if (window.activeInfoWindow) window.activeInfoWindow.close();
+                        info.open(map, marker);
+                        window.activeInfoWindow = info;
+                    });
                     mapLayers.push(marker); allLatLngs.push({ lat: place.lat, lng: place.lng });
                 });
             });
-            if (!preserveView && allLatLngs.length > 0) { if (allLatLngs.length > 1) { const bounds = new google.maps.LatLngBounds(); allLatLngs.forEach(p => bounds.extend(p)); map.fitBounds(bounds, 20); } else { map.panTo(allLatLngs[0]); map.setZoom(14); } }
 
-            // 옵션 A: 전체 필터(0)일 때만 경로선을 그립니다.
+            if (!preserveView && allLatLngs.length > 0) { 
+                if (allLatLngs.length > 1) { 
+                    const bounds = new google.maps.LatLngBounds(); 
+                    allLatLngs.forEach(p => bounds.extend(p)); 
+                    map.fitBounds(bounds, 40); 
+                } else { 
+                    map.panTo(allLatLngs[0]); 
+                    map.setZoom(14); 
+                } 
+            }
+
+            // 수정됨: 필터가 '전체(0)'일 때만 모든 경로 표시
             if (filterState === 0) {
                 for (let dayIndex = 0; dayIndex < trip.days.length; dayIndex++) {
                     if (appData.currentDayIndex !== 'all' && dayIndex !== appData.currentDayIndex) continue;
 
                     const dayPlaces = trip.days[dayIndex];
                     const baseColor = dayColors[dayIndex % dayColors.length];
+                    
                     for (let i = 1; i < dayPlaces.length; i++) {
                         const p1 = dayPlaces[i-1]; const p2 = dayPlaces[i]; 
                         const originalIndexP1 = i - 1;
 
-                        const segmentColor = (p1.visited && p2.visited) ? '#9ca3af' : baseColor; const transport = p2.transport || 'car'; const tMeta = transportMeta[transport] || transportMeta['car'];
-                        let isActiveSegment = true; if (window.highlightedPlaceId) isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
-                        const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db'; const strokeOpacity = isActiveSegment ? 1.0 : 0.3; const haloOpacity = isActiveSegment ? 0.9 : 0.2; const zIdx = isActiveSegment ? 4 : 2;
+                        // 수정됨: 클리어(도착 장소 방문 완료) 시 해당 경로선을 회색으로
+                        const segmentColor = p2.visited ? '#9ca3af' : baseColor; 
+                        const transport = p2.transport || 'car'; 
+                        const tMeta = transportMeta[transport] || transportMeta['car'];
+                        
+                        let isActiveSegment = true; 
+                        if (window.highlightedPlaceId) {
+                            isActiveSegment = (p1.id === window.highlightedPlaceId || p2.id === window.highlightedPlaceId);
+                        }
+                        
+                        const activeSegmentColor = isActiveSegment ? segmentColor : '#d1d5db'; 
+                        const strokeOpacity = isActiveSegment ? 1.0 : 0.2; 
+                        const haloOpacity = isActiveSegment ? 0.9 : 0.0; 
+                        const zIdx = isActiveSegment ? 4 : 2;
 
                         if (tMeta.profile) {
                             const origin = { lat: p1.lat, lng: p1.lng }; const destination = { lat: p2.lat, lng: p2.lng };
@@ -1417,7 +1485,9 @@
         }
 
         function drawFallback(p1, p2, color, dayIndex, pIndex, transport, isActiveSegment = true) {
-            const activeColor = isActiveSegment ? color : '#d1d5db'; const opacity = isActiveSegment ? 1 : 0.3; const zIdx = isActiveSegment ? 4 : 2;
+            const activeColor = isActiveSegment ? color : '#d1d5db'; 
+            const opacity = isActiveSegment ? 1 : 0.2; 
+            const zIdx = isActiveSegment ? 4 : 2;
             const polyline = new google.maps.Polyline({ path: [{ lat: p1.lat, lng: p1.lng }, { lat: p2.lat, lng: p2.lng }], strokeColor: activeColor, strokeOpacity: 0, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: opacity, strokeColor: activeColor, scale: 3 }, offset: '0', repeat: '12px' }], map: map, zIndex: zIdx });
             mapLayers.push(polyline);
             if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
