@@ -437,7 +437,16 @@
         }
 
         window.addEventListener('resize', () => { if (map) google.maps.event.trigger(map, 'resize'); });
-        function saveData() { localStorage.setItem('travelAppMergedFinal', JSON.stringify(appData)); }
+        function saveData() {
+            try {
+                localStorage.setItem('travelAppMergedFinal', JSON.stringify(appData));
+                return true;
+            } catch (e) {
+                console.error('저장 실패:', e);
+                alert("저장에 실패했습니다.\n\n브라우저 저장 공간이 가득 찼을 가능성이 큽니다 (특히 사진/PDF 바우처를 여러 개 첨부했을 때 자주 발생합니다).\n\n용량이 큰 바우처 파일을 삭제하시거나 더 작은 파일로 다시 첨부해 주세요.");
+                return false;
+            }
+        }
         function getCurrentTrip() { return appData.trips.find(t => t.id === appData.currentTripId) || appData.trips[0]; }
         
         function switchTab(tabName) {
@@ -455,6 +464,42 @@
             root.innerHTML = `<div class="modal-card bg-white rounded-2xl shadow-2xl w-[90%] md:w-full max-w-md max-h-[90vh] overflow-y-auto">${html}</div>`; root.classList.remove('hidden');
         }
         function closeModal() { document.getElementById('modalRoot').classList.add('hidden'); }
+
+        // 바우처로 첨부한 사진(특히 휴대폰 카메라 원본)은 용량이 몇 MB씩 되는 경우가 많아서
+        // localStorage 저장 용량 한도를 넘기기 쉽습니다. 이미지면 가로/세로 최대 1600px, JPEG 75% 품질로
+        // 미리 압축해서 저장하고, PDF 등 이미지가 아니면 원본 그대로 저장합니다.
+        function fileToStoredDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                if (!file.type || !file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+                    reader.readAsDataURL(file);
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('이미지를 불러올 수 없습니다.'));
+                    img.onload = () => {
+                        const MAX_DIM = 1600;
+                        let { width, height } = img;
+                        if (width > MAX_DIM || height > MAX_DIM) {
+                            if (width > height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
+                            else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.75));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
 
         function toggleVisited(placeId) {
             const { p } = getPlaceAndDay(placeId);
@@ -877,8 +922,43 @@
                 const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', dateChange: dateChange, voucher: editing ? editing.voucher : null };
                 
                 if (this.type.value === 'hotel') { const checkIn = this.checkIn.value; const checkOut = this.checkOut.value; data.checkIn = checkIn; data.checkOut = checkOut; data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || ''); } else { data.date = this.date.value.trim(); data.checkIn = ''; data.checkOut = ''; }
-                const saveAndClose = () => { if (editing) Object.assign(editing, data); else trip.reservations.push({ id: Date.now(), cleared: false, ...data }); saveData(); closeModal(); renderUI(true); };
-                if (fileInput.files && fileInput.files[0]) { const file = fileInput.files[0]; const reader = new FileReader(); reader.onload = (evt) => { data.voucher = { name: file.name, dataUrl: evt.target.result }; saveAndClose(); }; reader.readAsDataURL(file); } else { saveAndClose(); }
+
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+
+                // 저장이 성공했을 때만 모달을 닫고 화면을 새로고침합니다.
+                // 저장이 실패하면(용량 초과 등) saveData()가 이미 원인을 알려주는 alert를 띄우고,
+                // 여기서는 모달을 그대로 열어둬서 사용자가 파일을 빼거나 다시 시도할 수 있게 합니다.
+                const commit = (finalData) => {
+                    let isNew = false;
+                    if (editing) { Object.assign(editing, finalData); }
+                    else { isNew = true; trip.reservations.push({ id: Date.now(), cleared: false, ...finalData }); }
+
+                    if (saveData()) {
+                        closeModal(); renderUI(true);
+                    } else if (isNew) {
+                        trip.reservations.pop(); // 저장 실패 시 방금 추가했던 항목을 되돌려 중복 추가 방지
+                        submitBtn.disabled = false; submitBtn.textContent = originalBtnText;
+                    } else {
+                        submitBtn.disabled = false; submitBtn.textContent = originalBtnText;
+                    }
+                };
+
+                if (fileInput.files && fileInput.files[0]) {
+                    const file = fileInput.files[0];
+                    submitBtn.disabled = true; submitBtn.textContent = '첨부파일 처리 중...';
+                    fileToStoredDataUrl(file).then(dataUrl => {
+                        data.voucher = { name: file.name, dataUrl };
+                        submitBtn.textContent = '저장 중...';
+                        commit(data);
+                    }).catch(err => {
+                        console.error(err);
+                        alert('파일을 처리하는 중 오류가 발생했습니다. 다른 파일로 다시 시도해주세요.');
+                        submitBtn.disabled = false; submitBtn.textContent = originalBtnText;
+                    });
+                } else {
+                    commit(data);
+                }
             });
         }
         function toggleResFields(type) { document.getElementById('transportTimes').classList.toggle('hidden', type !== 'transport'); document.getElementById('hotelDates').classList.toggle('hidden', type !== 'hotel'); document.getElementById('genericDateWrap').classList.toggle('hidden', type === 'hotel'); }
