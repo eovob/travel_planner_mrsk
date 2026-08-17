@@ -861,11 +861,13 @@
             if (p.linkedResId) { const res = trip.reservations.find(r => r.id == p.linkedResId); if (res && res.type === 'transport') { if (res.departTime) dTime = res.departTime; if (res.arriveTime) aTime = res.arriveTime; } }
             return { dTime, aTime };
         }
-        function updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, isFallback = false) {
+        function updateRouteResult(dayIndex, pIndex, p1, p2, avgMin, distKm, transport, isFallback = false) {
             const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`); if (!resultEl) return;
             let timeStr = ''; let finalDurStr = '';
             if (transport === 'transit' || transport === 'flight') {
-                const { dTime, aTime } = getEffectiveTimes(p2); const manualDuration = getDuration(dTime, aTime);
+                // 구간 시간은 '도착지(p2)'가 아니라 '출발지(p1)'에 연동된 예약/바우처의 시간을 따릅니다.
+                // (예: 1번 장소에 연동된 항공권 시간이 1→2번 구간의 이동시간으로 반영됨)
+                const { dTime, aTime } = getEffectiveTimes(p1); const manualDuration = getDuration(dTime, aTime);
                 timeStr = (dTime && aTime) ? `<span class="text-coral-600 font-bold">[${dTime}~${aTime}]</span> ` : '';
                 finalDurStr = manualDuration !== null ? formatDurationKorean(manualDuration) : formatDurationKorean(avgMin);
             } else { finalDurStr = formatDurationKorean(avgMin); }
@@ -1434,7 +1436,7 @@
                                 </div>
                             </div>
                             ${index > 0 ? `<div class="grid grid-cols-2 gap-2 mb-2"><div><label class="text-[9px] md:text-[10px] font-bold text-ink-500">출발 시간 (이전 장소)</label><input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}></div><div><label class="text-[9px] md:text-[10px] font-bold text-ink-500">도착 시간 (이곳에)</label><input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}></div></div>` : ''}
-                            <div class="mb-2"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">연동할 예약/바우처 (시간 자동 반영)</label><select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none"><option value="">선택 안 함</option>${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}</select></div>
+                            <div class="mb-2"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">연동할 예약/바우처 (다음 장소까지의 이동시간에 자동 반영)</label><select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none"><option value="">선택 안 함</option>${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}</select></div>
                             <div class="mb-2"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">링크 (URL)</label><input type="text" onchange="updatePlaceField(${place.id}, 'url', this.value)" value="${place.url || ''}" placeholder="예: https://maps.google.com/..." class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none"></div>
                             <div><label class="text-[9px] md:text-[10px] font-bold text-ink-500">메모</label><textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-sand-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea></div>
                         </div>
@@ -1623,7 +1625,7 @@
                                     const halo = new google.maps.Polyline({ path, strokeColor: '#ffffff', strokeWeight: 6, strokeOpacity: haloOpacity, map, zIndex: zIdx - 1 });
                                     const line = new google.maps.Polyline({ path, strokeColor: activeSegmentColor, strokeWeight: 4, strokeOpacity: strokeOpacity, map, zIndex: zIdx });
                                     mapLayers.push(halo, line);
-                                    if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, originalIndexP1, p2, avgMin, distKm, transport, false); }
+                                    if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') { const distKm = route.distanceMeters / 1000; const avgMin = Math.max(1, Math.round((distKm / tMeta.speed) * 60)); updateRouteResult(dayIndex, originalIndexP1, p1, p2, avgMin, distKm, transport, false); }
                                 } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
                             });
                         } else { drawFallback(p1, p2, segmentColor, dayIndex, originalIndexP1, transport, isActiveSegment); }
@@ -1641,7 +1643,7 @@
             if (dayIndex === appData.currentDayIndex || appData.currentDayIndex === 'all') {
                 try {
                     const tMeta = transportMeta[transport] || transportMeta['car']; const distKm = haversineKm(p1.lat, p1.lng, p2.lat, p2.lng); const avgMin = Math.max(1, Math.round((distKm / (tMeta.speed || 60)) * 60));
-                    updateRouteResult(dayIndex, pIndex, p2, avgMin, distKm, transport, true);
+                    updateRouteResult(dayIndex, pIndex, p1, p2, avgMin, distKm, transport, true);
                 } catch (e) { const resultEl = document.getElementById(`route-result-${dayIndex}-${pIndex}`); if (resultEl) resultEl.innerHTML = `<span class="text-red-500 font-bold ml-1">계산 오류</span>`; }
             }
         }
