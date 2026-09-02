@@ -272,7 +272,10 @@
             
             <div class="px-3 md:px-4 pt-2 pb-1.5 md:pt-3 md:pb-2 border-b border-sand-200 bg-white flex flex-row items-center justify-between gap-2">
                 <div id="dayChipsContainer" class="flex gap-2 overflow-x-auto pb-1 flex-1 scrollbar-hide mouse-scroll-x"></div>
-                <button onclick="addDay()" class="ml-1 text-xs font-bold text-coral-500 whitespace-nowrap hover:text-coral-600">+ 일자 추가</button>
+                <button id="btnDeleteCurrentDay" onclick="deleteDay(appData.currentDayIndex)" class="ml-1 w-6 h-6 flex items-center justify-center rounded-md text-ink-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-0 disabled:pointer-events-none" title="현재 보고 있는 Day 삭제">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+                </button>
+                <button onclick="addDay()" class="ml-0.5 text-xs font-bold text-coral-500 whitespace-nowrap hover:text-coral-600">+ 일자 추가</button>
             </div>
 
             <div class="flex-1 overflow-y-auto p-3 md:p-4 bg-sand-50 scroll-smooth" id="currentDayContainer">
@@ -1445,14 +1448,16 @@
             renderReservations(); renderChecklist();
 
             const chipContainer = document.getElementById('dayChipsContainer');
-            chipContainer.innerHTML = `<button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${appData.currentDayIndex === 'all' ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">All</button><div id="sortableDaysContainer" class="flex gap-2">${trip.days.map((d, i) => `<div class="relative shrink-0"><button data-index="${i}" onclick="selectDay(${i})" class="day-chip cursor-grab px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>${trip.days.length > 1 ? `<button onclick="event.stopPropagation(); deleteDay(${i})" class="day-delete-btn absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-sand-300 text-ink-400 hover:text-red-500 hover:border-red-300 text-[9px] leading-none flex items-center justify-center shadow-sm transition" title="Day ${i + 1} 삭제">✕</button>` : ''}</div>`).join('')}</div>`;
+            chipContainer.innerHTML = `<button onclick="selectDay('all')" class="day-chip px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${appData.currentDayIndex === 'all' ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">All</button><div id="sortableDaysContainer" class="flex gap-2">${trip.days.map((d, i) => `<button data-index="${i}" onclick="selectDay(${i})" class="day-chip cursor-grab px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm rounded-full border font-bold ${i === appData.currentDayIndex ? 'active' : 'border-sand-200 text-ink-600 bg-white hover:bg-sand-50'} whitespace-nowrap">Day ${i + 1}</button>`).join('')}</div>`;
+
+            const deleteDayBtn = document.getElementById('btnDeleteCurrentDay');
+            if (deleteDayBtn) deleteDayBtn.disabled = (appData.currentDayIndex === 'all' || trip.days.length <= 1);
 
             if (window.daySortableInstance) window.daySortableInstance.destroy();
             const sortableDaysContainer = document.getElementById('sortableDaysContainer');
             if (sortableDaysContainer) {
                 window.daySortableInstance = new Sortable(sortableDaysContainer, {
                     animation: 150, delay: 150, delayOnTouchOnly: true, ghostClass: 'sortable-ghost',
-                    filter: '.day-delete-btn', preventOnFilter: false,
                     onEnd: function (evt) {
                         const oldIndex = evt.oldIndex; const newIndex = evt.newIndex; if (oldIndex === newIndex) return;
                         const trip = getCurrentTrip(); const movedDay = trip.days.splice(oldIndex, 1)[0]; trip.days.splice(newIndex, 0, movedDay);
