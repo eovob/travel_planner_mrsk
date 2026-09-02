@@ -959,10 +959,38 @@
             if (navigator.geolocation) {
                 const btn = document.querySelector('button[title="내 위치 찾기"]'); btn.innerHTML = '⏳';
                 navigator.geolocation.getCurrentPosition(
-                    (pos) => { map.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude }); map.setZoom(15); btn.innerHTML = '🎯'; },
+                    (pos) => {
+                        const myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        map.panTo(myPos); map.setZoom(15);
+                        showMyLocationMarker(myPos, pos.coords.accuracy);
+                        btn.innerHTML = '🎯';
+                    },
                     (err) => { alert("위치 접근이 차단되어 있습니다."); btn.innerHTML = '🎯'; }
                 );
             } else { alert("지원하지 않는 브라우저입니다."); }
+        }
+
+        // 지도 위에 현재 위치를 파란 점(+ 정확도 반경 원)으로 표시합니다. 다시 누르면 위치를 갱신합니다.
+        function showMyLocationMarker(pos, accuracy) {
+            if (window.myLocationMarker) window.myLocationMarker.setMap(null);
+            if (window.myLocationAccuracyCircle) window.myLocationAccuracyCircle.setMap(null);
+
+            window.myLocationAccuracyCircle = new google.maps.Circle({
+                strokeColor: '#4285F4', strokeOpacity: 0.35, strokeWeight: 1,
+                fillColor: '#4285F4', fillOpacity: 0.12,
+                map: map, center: pos, radius: accuracy || 50, clickable: false, zIndex: 1
+            });
+
+            window.myLocationMarker = new google.maps.Marker({
+                position: pos, map: map, zIndex: 999, clickable: false,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 8,
+                    fillColor: '#4285F4', fillOpacity: 1,
+                    strokeColor: '#ffffff', strokeWeight: 3
+                },
+                title: '내 현재 위치'
+            });
         }
         function toggleMapMode() {
             mapClickMode = !mapClickMode; const btn = document.getElementById('mapModeBtn'); const span = btn.querySelector('span');
