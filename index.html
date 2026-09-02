@@ -732,6 +732,10 @@
                         </label>
                         <button onclick="exportData(true)" class="w-full bg-coral-50 text-coral-600 border border-coral-200 py-2.5 rounded-lg font-bold hover:bg-coral-100 transition mt-2">📤 현재 여행만 내보내기 (.json)</button>
                         <button onclick="exportData(false)" class="w-full bg-sand-100 text-navy-800 py-2.5 rounded-lg font-bold hover:bg-sand-200 transition">📦 전체 백업 내보내기 (.json)</button>
+                        <button onclick="shareTripBundle()" class="w-full bg-[#FEE500] text-[#3C1E1E] py-2.5 rounded-lg font-bold hover:brightness-95 transition flex items-center justify-center gap-1.5 mt-2">
+                            💬 카톡으로 링크+파일 한번에 공유
+                        </button>
+                        <p class="text-[10px] text-ink-400 px-1 leading-relaxed">받는 사람이 앱 링크를 열고, 같이 보낸 파일을 '가져오기'로 불러오면 바로 확인할 수 있어요. (모바일 브라우저 지원 필요 — 지원 안 되면 파일 다운로드 + 링크 복사로 대신 도와드려요)</p>
                     </div>
                     <div class="border-t border-sand-200 pt-4">
                         <label class="text-sm font-bold text-ink-600 block mb-2">가져오기 (.json)</label>
@@ -849,6 +853,43 @@
         function exportData(currentOnly) {
             let exportObj = currentOnly ? { __type: 'single', trip: getCurrentTrip() } : { __type: 'full', trips: appData.trips };
             const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `여행데이터.json`; a.click();
+        }
+
+        // 카카오톡 등으로 '앱 링크 + 여행 JSON 파일'을 한 번에 공유합니다.
+        // Web Share API(파일 공유)를 지원하는 모바일 브라우저에서는 공유 시트가 바로 뜨고,
+        // 지원하지 않으면 파일 다운로드 + 링크 클립보드 복사로 대신 도와줍니다.
+        async function shareTripBundle() {
+            const trip = getCurrentTrip();
+            const exportObj = { __type: 'single', trip };
+            const jsonStr = JSON.stringify(exportObj, null, 2);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const fileName = `${(trip.title || '여행').replace(/[\\/:*?"<>|]/g, '')}.json`;
+            const appLink = window.location.href;
+            const isLocalFile = window.location.protocol === 'file:';
+            const shareText = `📍 [${trip.title}] 여행 계획을 공유해요!\n\n1) 아래 링크로 앱을 열고\n2) 같이 온 파일을 '가져오기'로 불러오면 바로 확인할 수 있어요.\n\n${appLink}`;
+
+            let file = null;
+            try { file = new File([blob], fileName, { type: 'application/json' }); } catch (e) { /* 구형 브라우저는 File 생성자 미지원 */ }
+
+            if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: trip.title, text: shareText });
+                    return;
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return; // 사용자가 공유를 취소한 경우
+                    // 그 외 오류는 아래 폴백으로 이어서 처리
+                }
+            }
+
+            // 폴백: 파일 공유를 지원하지 않는 브라우저 (대부분의 데스크톱 등)
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+            const localWarning = isLocalFile ? '\n\n⚠️ 지금은 로컬 파일(file://)로 열려 있어서 이 링크는 다른 사람이 열 수 없어요. 앱을 웹에 올린 뒤 그 주소로 다시 시도해주세요.' : '';
+            try {
+                await navigator.clipboard.writeText(appLink);
+                alert(`이 브라우저에서는 파일과 링크를 한 번에 공유할 수 없어요.\n\nJSON 파일은 다운로드됐고, 앱 링크는 클립보드에 복사했어요.\n카카오톡을 열어 파일과 링크를 각각 붙여넣어 보내주세요.${localWarning}`);
+            } catch (e) {
+                alert(`JSON 파일을 다운로드했어요. 아래 링크를 복사해서 카카오톡에 함께 보내주세요:\n\n${appLink}${localWarning}`);
+            }
         }
         function importData(e) {
             const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
