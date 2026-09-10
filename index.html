@@ -1075,7 +1075,7 @@
         }
 
         function openResModal(editId = null) {
-            const trip = getCurrentTrip(); const editing = editId ? trip.reservations.find(r => r.id === editId) : null; const inputCls = "w-full min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const initialType = editing ? editing.type : 'hotel'; 
+            const trip = getCurrentTrip(); const editing = editId ? trip.reservations.find(r => r.id === editId) : null; const inputCls = "w-full min-w-0 border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const dateInputCls = "w-full min-w-0 max-w-full box-border border border-sand-200 rounded-lg px-2 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const initialType = editing ? editing.type : 'hotel'; 
             
             const costCurrency = editing ? (editing.currency || 'KRW') : 'KRW';
             openModal(`
@@ -1087,11 +1087,11 @@
                         <div class="grid grid-cols-2 gap-2">
                             <div class="min-w-0">
                                 <label class="text-xs font-bold text-coral-600">출발 시간</label>
-                                <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" />
+                                <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${dateInputCls}" style="font-size:13px;" />
                             </div>
                             <div class="min-w-0">
                                 <label class="text-xs font-bold text-coral-600">도착 시간</label>
-                                <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" />
+                                <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${dateInputCls}" style="font-size:13px;" />
                             </div>
                         </div>
                         <label class="flex items-center gap-1.5 text-[11px] text-ink-500 cursor-pointer mt-2">
@@ -1099,7 +1099,7 @@
                         </label>
                         <input type="text" id="resDateChangeInput" placeholder="예: (+1)" value="${editing ? (editing.dateChange||'') : ''}" class="w-full border border-sand-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:ring-2 focus:ring-coral-400 transition ${editing && editing.dateChange ? '' : 'hidden'}" />
                     </div>
-                    <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}"><div class="min-w-0"><label class="text-xs font-bold text-coral-600">체크인 날짜</label><input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${inputCls}" /></div><div class="min-w-0"><label class="text-xs font-bold text-coral-600">체크아웃 날짜</label><input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${inputCls}" /></div></div>
+                    <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}"><div class="min-w-0"><label class="text-xs font-bold text-coral-600">체크인 날짜</label><input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${dateInputCls}" style="font-size:13px;" /></div><div class="min-w-0"><label class="text-xs font-bold text-coral-600">체크아웃 날짜</label><input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${dateInputCls}" style="font-size:13px;" /></div></div>
                     <div class="grid grid-cols-2 gap-2"><div id="genericDateWrap" class="${initialType === 'hotel' ? 'hidden' : ''}"><label class="text-xs font-bold text-ink-600">일시/날짜</label><input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" /></div><div><label class="text-xs font-bold text-ink-600">링크 (URL)</label><input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="${inputCls}" /></div></div>
                     <div>
                         <label class="text-xs font-bold text-ink-600">비용</label>
@@ -1677,7 +1677,7 @@
                                     </div>
                                 </div>
                             </div>
-                            ${index > 0 ? `<div class="grid grid-cols-2 gap-2 mb-2"><div class="min-w-0"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">출발 시간 (이전 장소)</label><input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full min-w-0 p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}></div><div class="min-w-0"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">도착 시간 (이곳에)</label><input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full min-w-0 p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}></div></div>` : ''}
+                            ${index > 0 ? `<div class="grid grid-cols-2 gap-2 mb-2"><div class="min-w-0"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">출발 시간 (이전 장소)</label><input type="time" onchange="updatePlaceField(${place.id}, 'departTime', this.value)" value="${place.departTime || ''}" class="w-full min-w-0 max-w-full box-border p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" style="font-size:12px;" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}></div><div class="min-w-0"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">도착 시간 (이곳에)</label><input type="time" onchange="updatePlaceField(${place.id}, 'arriveTime', this.value)" value="${place.arriveTime || ''}" class="w-full min-w-0 max-w-full box-border p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none" style="font-size:12px;" ${hasRes ? 'title="차량/도보 시에는 자동계산이 우선 적용됩니다."' : ''}></div></div>` : ''}
                             <div class="mb-2"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">연동할 예약/바우처 (다음 장소까지의 이동시간에 자동 반영)</label><select onchange="updatePlaceField(${place.id}, 'linkedResId', this.value)" class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none"><option value="">선택 안 함</option>${trip.reservations.map(r => `<option value="${r.id}" ${place.linkedResId == r.id ? 'selected':''}>${r.title}</option>`).join('')}</select></div>
                             <div class="mb-2"><label class="text-[9px] md:text-[10px] font-bold text-ink-500">링크 (URL)</label><input type="text" onchange="updatePlaceField(${place.id}, 'url', this.value)" value="${place.url || ''}" placeholder="예: https://maps.google.com/..." class="w-full p-1 md:p-1.5 mt-0.5 border border-sand-200 rounded bg-white outline-none"></div>
                             <div><label class="text-[9px] md:text-[10px] font-bold text-ink-500">메모</label><textarea onchange="updatePlaceField(${place.id}, 'memo', this.value)" class="w-full mt-0.5 p-1 md:p-2 border border-sand-200 rounded bg-white h-10 resize-none outline-none">${place.memo || ''}</textarea></div>
