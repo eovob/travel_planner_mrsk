@@ -1077,29 +1077,45 @@
         function openResModal(editId = null) {
             const trip = getCurrentTrip(); const editing = editId ? trip.reservations.find(r => r.id === editId) : null; const inputCls = "w-full border border-sand-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition"; const initialType = editing ? editing.type : 'hotel'; 
             
+            const costCurrency = editing ? (editing.currency || 'KRW') : 'KRW';
             openModal(`
                 <form id="resForm" class="p-6 space-y-4">
                     <h2 class="font-extrabold text-navy-900 text-lg">${editing ? '예약 수정' : '예약 추가'}</h2>
                     <div><label class="text-xs font-bold text-ink-600">종류</label><select name="type" onchange="toggleResFields(this.value)" class="${inputCls}"><option value="transport" ${editing && editing.type==='transport'?'selected':''}>✈️ 교통편 (항공/기차 등)</option><option value="hotel" ${!editing || editing.type==='hotel'?'selected':''}>🏨 숙소</option><option value="other" ${editing && editing.type==='other'?'selected':''}>🎟️ 티켓/기타</option></select></div>
                     <div><label class="text-xs font-bold text-ink-600">제목 (필수)</label><input name="title" required value="${editing ? editing.title : ''}" placeholder="예: KE123 출국 항공편" class="${inputCls}" /></div>
-                    <div id="transportTimes" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'transport' ? 'hidden' : ''}">
-                        <div>
-                            <label class="text-xs font-bold text-coral-600">출발 시간</label>
-                            <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" />
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center">
-                                <label class="text-xs font-bold text-coral-600">도착 시간</label>
-                                <label class="flex items-center gap-1 text-[10px] text-ink-500 cursor-pointer">
-                                    <input type="checkbox" id="resDateChangeCheck" onchange="toggleResDateChange(this.checked)" ${editing && editing.dateChange ? 'checked' : ''}> 날짜변경
-                                </label>
+                    <div id="transportTimes" class="mt-2 ${initialType !== 'transport' ? 'hidden' : ''}">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs font-bold text-coral-600">출발 시간</label>
+                                <input type="time" name="departTime" value="${editing ? (editing.departTime||'') : ''}" class="${inputCls}" />
                             </div>
-                            <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" />
-                            <input type="text" id="resDateChangeInput" placeholder="예: (+1)" value="${editing ? (editing.dateChange||'') : ''}" class="w-full border border-sand-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:ring-2 focus:ring-coral-400 transition ${editing && editing.dateChange ? '' : 'hidden'}" />
+                            <div>
+                                <label class="text-xs font-bold text-coral-600">도착 시간</label>
+                                <input type="time" name="arriveTime" value="${editing ? (editing.arriveTime||'') : ''}" class="${inputCls}" />
+                            </div>
                         </div>
+                        <label class="flex items-center gap-1.5 text-[11px] text-ink-500 cursor-pointer mt-2">
+                            <input type="checkbox" id="resDateChangeCheck" onchange="toggleResDateChange(this.checked)" ${editing && editing.dateChange ? 'checked' : ''}> 도착이 다음날로 넘어가요 (날짜변경)
+                        </label>
+                        <input type="text" id="resDateChangeInput" placeholder="예: (+1)" value="${editing ? (editing.dateChange||'') : ''}" class="w-full border border-sand-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:ring-2 focus:ring-coral-400 transition ${editing && editing.dateChange ? '' : 'hidden'}" />
                     </div>
                     <div id="hotelDates" class="grid grid-cols-2 gap-2 mt-2 ${initialType !== 'hotel' ? 'hidden' : ''}"><div><label class="text-xs font-bold text-coral-600">체크인 날짜</label><input type="date" name="checkIn" value="${editing ? (editing.checkIn||'') : ''}" class="${inputCls}" /></div><div><label class="text-xs font-bold text-coral-600">체크아웃 날짜</label><input type="date" name="checkOut" value="${editing ? (editing.checkOut||'') : ''}" class="${inputCls}" /></div></div>
                     <div class="grid grid-cols-2 gap-2"><div id="genericDateWrap" class="${initialType === 'hotel' ? 'hidden' : ''}"><label class="text-xs font-bold text-ink-600">일시/날짜</label><input name="date" value="${editing ? (editing.date||'') : ''}" placeholder="예: 10/12" class="${inputCls}" /></div><div><label class="text-xs font-bold text-ink-600">링크 (URL)</label><input name="link" value="${editing ? (editing.link||'') : ''}" placeholder="예: https://www.hotel.com" class="${inputCls}" /></div></div>
+                    <div>
+                        <label class="text-xs font-bold text-ink-600">비용</label>
+                        <div class="grid grid-cols-2 gap-2 mt-1">
+                            <select name="currency" onchange="toggleResCurrencyRate(this.value)" class="border border-sand-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-coral-400 focus:border-transparent transition">
+                                <option value="KRW" ${costCurrency==='KRW'?'selected':''}>KRW(₩)</option>
+                                <option value="USD" ${costCurrency==='USD'?'selected':''}>USD($)</option>
+                                <option value="EUR" ${costCurrency==='EUR'?'selected':''}>EUR(€)</option>
+                                <option value="JPY" ${costCurrency==='JPY'?'selected':''}>JPY(¥)</option>
+                                <option value="CNY" ${costCurrency==='CNY'?'selected':''}>CNY(¥)</option>
+                                <option value="CUSTOM" ${costCurrency==='CUSTOM'?'selected':''}>수동입력</option>
+                            </select>
+                            <input type="number" name="cost" value="${editing && editing.cost ? editing.cost : ''}" placeholder="금액" class="${inputCls} mt-0" />
+                        </div>
+                        <input type="number" name="customRate" id="resCustomRate" value="${editing && editing.customRate ? editing.customRate : ''}" placeholder="원화 환율 (1단위 당 ₩)" class="${inputCls} mt-2 ${costCurrency==='KRW' ? 'hidden' : ''}" />
+                    </div>
                     <div><label class="text-xs font-bold text-ink-600">메모 (예약번호 등)</label><input name="note" value="${editing ? (editing.note||'') : ''}" class="${inputCls}" /></div>
                     <div><label class="text-xs font-bold text-ink-600">바우처 파일 첨부 (이미지/PDF)</label><input type="file" id="resFileInput" accept="image/*,.pdf" class="w-full mt-1.5 text-xs" />${editing && editing.voucher ? `<p class="text-[11px] text-coral-600 mt-1">현재 첨부됨: ${editing.voucher.name} (새로 등록 시 덮어씀)</p>` : ''}</div>
                     <div class="flex gap-2 pt-4"><button type="button" onclick="closeModal()" class="flex-1 py-2.5 rounded-lg border border-sand-200 text-sm font-semibold text-ink-600 hover:bg-sand-50 transition">취소</button><button type="submit" class="flex-1 py-2.5 rounded-lg bg-coral-500 text-white text-sm font-bold hover:bg-coral-600 transition">저장</button></div>
@@ -1109,7 +1125,7 @@
             document.getElementById('resForm').addEventListener('submit', function(e) {
                 e.preventDefault(); const fileInput = document.getElementById('resFileInput');
                 const dateChange = (this.type.value === 'transport' && document.getElementById('resDateChangeCheck').checked) ? document.getElementById('resDateChangeInput').value.trim() : '';
-                const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', dateChange: dateChange, voucher: editing ? editing.voucher : null };
+                const data = { type: this.type.value, title: this.title.value.trim(), link: this.link.value.trim(), note: this.note.value.trim(), departTime: this.type.value === 'transport' ? this.departTime.value : '', arriveTime: this.type.value === 'transport' ? this.arriveTime.value : '', dateChange: dateChange, voucher: editing ? editing.voucher : null, currency: this.currency.value, cost: this.cost.value ? Number(this.cost.value) : '', customRate: this.customRate.value ? Number(this.customRate.value) : '' };
                 
                 if (this.type.value === 'hotel') { const checkIn = this.checkIn.value; const checkOut = this.checkOut.value; data.checkIn = checkIn; data.checkOut = checkOut; data.date = (checkIn && checkOut) ? `${checkIn} ~ ${checkOut}` : (checkIn || checkOut || ''); } else { data.date = this.date.value.trim(); data.checkIn = ''; data.checkOut = ''; }
 
@@ -1152,6 +1168,7 @@
             });
         }
         function toggleResFields(type) { document.getElementById('transportTimes').classList.toggle('hidden', type !== 'transport'); document.getElementById('hotelDates').classList.toggle('hidden', type !== 'hotel'); document.getElementById('genericDateWrap').classList.toggle('hidden', type === 'hotel'); }
+        function toggleResCurrencyRate(currency) { const rateInput = document.getElementById('resCustomRate'); if (rateInput) rateInput.classList.toggle('hidden', currency === 'KRW'); }
         function deleteReservation(id) { if(!confirm('이 예약을 삭제할까요?')) return; const trip = getCurrentTrip(); trip.reservations = trip.reservations.filter(r => r.id !== id); trip.days.forEach(d => d.forEach(p => { if(p.linkedResId == id) p.linkedResId = ''; })); saveData(); renderUI(true); }
 
         function toggleResClear(id) {
@@ -1195,6 +1212,19 @@
                 });
                 dayStats.push({ count: dCount, cost: dCost, dist: dDist, time: dTime, ratingSum: dRatingSum, ratedCount: dRatedCount });
             });
+
+            // 예약/바우처에 입력한 비용도 통계에 합산합니다.
+            let reservationCost = 0;
+            (trip.reservations || []).forEach(r => {
+                if (!r.cost) return;
+                if (r.currency === 'CUSTOM' || ['USD', 'EUR', 'JPY', 'CNY'].includes(r.currency)) {
+                    const rate = r.customRate ? Number(r.customRate) : 0;
+                    reservationCost += Number(r.cost) * rate;
+                } else {
+                    reservationCost += Number(r.cost);
+                }
+            });
+            totalCost += reservationCost;
 
             const avgOverall = ratedCount > 0 ? (totalRating / ratedCount).toFixed(1) : '0.0';
 
@@ -1242,7 +1272,7 @@
                         <div>
                             <p class="text-[11px] font-bold text-ink-500 mb-3 pb-1 border-b border-sand-100">예상 비용 기준</p>
                             <div class="space-y-2">
-                                ${catByCost.map(([k, v]) => `<div class="flex justify-between text-[11px] bg-sand-50 p-2 rounded-lg"><span class="text-ink-700">${categories[k].label}</span><span class="font-bold text-coral-600">₩${v.cost.toLocaleString()}</span></div>`).join('') || '<div class="text-[11px] text-ink-400">데이터 없음</div>'}
+                                ${catByCost.map(([k, v]) => `<div class="flex justify-between text-[11px] bg-sand-50 p-2 rounded-lg"><span class="text-ink-700">${categories[k].label}</span><span class="font-bold text-coral-600">₩${v.cost.toLocaleString()}</span></div>`).join('')}${reservationCost > 0 ? `<div class="flex justify-between text-[11px] bg-sand-50 p-2 rounded-lg"><span class="text-ink-700">🎫 예약/바우처</span><span class="font-bold text-coral-600">₩${Math.round(reservationCost).toLocaleString()}</span></div>` : ''}${(catByCost.length === 0 && reservationCost === 0) ? '<div class="text-[11px] text-ink-400">데이터 없음</div>' : ''}
                             </div>
                         </div>
                     </div>
@@ -1380,10 +1410,21 @@
         }
 
         function viewVoucherModal(resId) {
-            const trip = getCurrentTrip(); const res = trip.reservations.find(r => r.id == resId); if(!res) return;
-            let voucherHtml = `<p class="text-sm text-ink-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
-            if (res.voucher) { if (res.voucher.dataUrl.startsWith('data:image')) voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-sand-200" />`; else voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name}" class="text-coral-600 font-bold underline">📄 ${res.voucher.name} 다운로드</a></div>`; }
-            openModal(`<div class="p-6"><div class="flex justify-between items-start mb-4"><div class="flex-1 min-w-0 pr-2"><h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2><p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime} <span class="text-red-500">${res.dateChange || ''}</span></p>` : ''}</div><button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button></div>${voucherHtml}</div>`);
+            try {
+                const trip = getCurrentTrip(); const res = trip.reservations.find(r => r.id == resId);
+                if (!res) { alert('예약 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.'); return; }
+                let voucherHtml = `<p class="text-sm text-ink-500 py-4 text-center">첨부된 바우처가 없습니다.</p>`;
+                if (res.voucher && typeof res.voucher.dataUrl === 'string' && res.voucher.dataUrl.length > 0) {
+                    if (res.voucher.dataUrl.startsWith('data:image')) voucherHtml = `<img src="${res.voucher.dataUrl}" class="w-full rounded border border-sand-200" />`;
+                    else voucherHtml = `<div class="text-center py-4"><a href="${res.voucher.dataUrl}" download="${res.voucher.name || '첨부파일'}" class="text-coral-600 font-bold underline">📄 ${res.voucher.name || '첨부파일'} 다운로드</a></div>`;
+                } else if (res.voucher) {
+                    voucherHtml = `<p class="text-sm text-red-500 py-4 text-center">첨부파일 데이터가 손상되어 표시할 수 없어요.<br>바우처를 다시 첨부해주세요.</p>`;
+                }
+                openModal(`<div class="p-6"><div class="flex justify-between items-start mb-4"><div class="flex-1 min-w-0 pr-2"><h2 class="font-bold text-navy-900 text-lg break-words">${res.title}</h2><p class="text-xs text-ink-500 mt-1 break-words">${res.date ? `일시: ${res.date} | ` : ''}메모: ${res.note}</p>${res.link ? `<a href="${res.link.startsWith('http') ? res.link : 'https://'+res.link}" target="_blank" class="text-xs text-coral-500 hover:underline block mt-1 break-all">🔗 웹사이트로 이동</a>` : ''}${(res.type==='transport' && res.departTime && res.arriveTime) ? `<p class="text-xs font-bold text-coral-600 mt-1">🕒 ${res.departTime} ~ ${res.arriveTime} <span class="text-red-500">${res.dateChange || ''}</span></p>` : ''}</div><button onclick="closeModal()" class="text-ink-400 hover:text-red-500 font-bold text-xl leading-none shrink-0">✕</button></div>${voucherHtml}</div>`);
+            } catch (err) {
+                console.error('viewVoucherModal error:', err);
+                alert('첨부파일을 여는 중 오류가 발생했습니다.');
+            }
         }
 
         function openMemoModal(placeId) {
@@ -1451,6 +1492,13 @@
                     timeStr = ` | 🕒 ${r.departTime} ~ ${r.arriveTime} <span class="text-coral-600 font-bold">${r.dateChange || ''}</span>`;
                 }
 
+                let costStr = '';
+                if (r.cost) {
+                    const symbols = { USD: '$', EUR: '€', JPY: '¥', CNY: '¥(위안)', CUSTOM: '' };
+                    if (!r.currency || r.currency === 'KRW') costStr = `₩${Number(r.cost).toLocaleString()}`;
+                    else { const converted = r.customRate ? Math.round(Number(r.cost) * Number(r.customRate)) : null; costStr = `${symbols[r.currency] || ''}${Number(r.cost).toLocaleString()}${converted ? ` (약 ₩${converted.toLocaleString()})` : ''}`; }
+                }
+
                 div.innerHTML = `
                     <div class="flex justify-between items-start gap-2">
                         <div class="flex items-start gap-2.5 flex-1 min-w-0">
@@ -1471,7 +1519,10 @@
                             <button onclick="deleteReservation(${r.id})" class="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition">삭제</button>
                         </div>
                     </div>
-                    ${r.voucher ? `<div class="mt-3 pt-2 border-t border-sand-100"><button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">📎 ${r.voucher.name} 보기</button></div>` : ''}
+                    ${(r.voucher || costStr) ? `<div class="mt-3 pt-2 border-t border-sand-100 flex items-center justify-between gap-2">
+                        ${r.voucher ? `<button onclick="viewVoucherModal(${r.id})" class="text-xs text-coral-600 font-bold flex items-center gap-1 hover:underline">📎 ${r.voucher.name} 보기</button>` : '<span></span>'}
+                        ${costStr ? `<span class="text-xs font-bold text-navy-800">💰 ${costStr}</span>` : ''}
+                    </div>` : ''}
                 `;
                 container.appendChild(div);
             });
